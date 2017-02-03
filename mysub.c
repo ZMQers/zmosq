@@ -38,6 +38,14 @@ s_message (struct mosquitto *mosq, void *obj, const struct mosquitto_message *me
 		fflush(stdout);
 }
 
+static int
+s_mqtt_read (zloop_t *loop, zmq_pollitem_t *item, void *arg)
+{
+    fprintf (stderr, "D: s_mqtt_read: ");
+    struct mosquitto *mqtt_client = (struct mosquitto*) arg;
+    mosquitto_loop_read (mqtt_client, 1);
+}
+
 int main () {
 
     int major, minor, revision;
@@ -66,10 +74,18 @@ int main () {
         "::1");
     assert (r == MOSQ_ERR_SUCCESS);
 
+    /*
     r = mosquitto_loop_forever (
         mqtt_client,
         -1,
         1);
+    */
+
+    zloop_t *loop = zloop_new ();
+    zmq_pollitem_t it = {NULL, mosquitto_socket (mqtt_client), ZMQ_POLLIN, 0};
+    int id = zloop_poller (loop, &it, s_mqtt_read, (void*) mqtt_client);
+    r = zloop_start (loop);
+    assert (r == 0);
 
     mosquitto_disconnect (mqtt_client);
 
