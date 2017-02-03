@@ -20,6 +20,7 @@
 #include "zmsq_classes.h"
 
 //  Structure of our actor
+typedef struct mosquitto mosquitto_t;
 
 struct _zmosq_server_t {
     zsock_t *pipe;              //  Actor command pipe
@@ -128,6 +129,53 @@ zmosq_server_recv_api (zmosq_server_t *self)
     zmsg_destroy (&request);
 }
 
+static int s_api_reader (
+           zloop_t *loop, zsock_t *reader, void *arg)
+{
+    zmosq_server_t* self = (zmosq_server_t*) arg;
+    zmosq_server_recv_api (self);
+    return 0;
+}
+
+static int
+s_mqtt_read (zloop_t *loop, zmq_pollitem_t *item, void *arg)
+{
+    fprintf (stderr, "D: s_mqtt_read: ");
+    struct mosquitto *mqtt_client = (struct mosquitto*) arg;
+    mosquitto_loop_read (mqtt_client, 1);
+    return 0;
+}
+
+
+static void
+s_connect (struct mosquitto *mosq, void *obj, int result) {
+    fprintf (stderr, "D: s_connect, result=%d\n", result);
+
+    if (!result) {
+        fprintf (stderr, "D: !s_connect, !result\n");
+        int r = mosquitto_subscribe (mosq, NULL, "TEST", 0);
+        assert (r == MOSQ_ERR_SUCCESS);
+    }
+    else
+    {
+        fprintf (stderr, "D: s_connect: %s", mosquitto_connack_string (result));
+    }
+}
+
+static void
+s_message (struct mosquitto *mosq, void *obj, const struct mosquitto_message *message)
+{
+	assert(obj);
+		if(message->payloadlen){
+			printf("%s ", message->topic);
+			fwrite(message->payload, 1, message->payloadlen, stdout);
+				printf("\n");
+		}else{
+				printf("%s (null)\n", message->topic);
+		}
+		fflush(stdout);
+}
+
 
 //  --------------------------------------------------------------------------
 //  This is the actor which runs in its own thread.
@@ -139,15 +187,49 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     if (!self)
         return;          //  Interrupted
 
+
     //  Signal actor successfully initiated
     zsock_signal (self->pipe, 0);
 
-    while (!self->terminated) {
-        zsock_t *which = (zsock_t *) zpoller_wait (self->poller, 0);
-        if (which == self->pipe)
-            zmosq_server_recv_api (self);
-       //  Add other sockets when you need them.
-    }
+    int r = mosquitto_lib_init ();
+    assert (r == MOSQ_ERR_SUCCESS);
+
+    mosquitto_t *mqtt_client = mosquitto_new (
+        "mysub-MVY",
+        false,
+        NULL
+    );
+    assert (mqtt_client);
+
+    mosquitto_connect_callback_set (mqtt_client, s_connect);
+	mosquitto_message_callback_set (mqtt_client, s_message);
+
+    r = mosquitto_connect_bind (
+        mqtt_client,
+        "::1",
+        1883,
+        false,
+        "::1");
+    assert (r == MOSQ_ERR_SUCCESS);
+
+    zloop_t *loop = zloop_new ();
+    zloop_reader (loop, self->pipe, s_api_reader, (void*) self);
+    zmq_pollitem_t it = {NULL, mosquitto_socket (mqtt_client), ZMQ_POLLIN, 0};
+    int id = zloop_poller (loop, &it, s_mqtt_read, (void*) mqtt_client);
+    printf ("%d\n",id);
+    r = zloop_start (loop);
+    assert (r == 0);
+
+    
+    mosquitto_destroy (mqtt_client);
+    mqtt_client = NULL;
+
+    r = mosquitto_lib_cleanup ();
+    assert (r == MOSQ_ERR_SUCCESS);
+
+
+    
+
     zmosq_server_destroy (&self);
 }
 
