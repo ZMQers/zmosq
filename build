@@ -8,8 +8,11 @@ if [[ -z "${MOSQ_BASE}" ]]; then
     exit 1
 fi
 
+if [[ ! -x configure ]]; then
+    ./autogen.sh
+fi
+
 LIBDIR="${MOSQ_BASE}/build/lib/"
 INCDIR="${MOSQ_BASE}/lib/"
 
-gcc -I${INCDIR} -std=c99 mysub.c -L${LIBDIR} -lmosquitto -lczmq -o mysub 
-gcc -I${INCDIR} -std=c99 test.c -L${LIBDIR} -lmosquitto -lczmq -o test
+mosquitto_CFLAGS=-I${INCDIR} mosquitto_LIBS=-L${LIBDIR} ./configure "${@}"
