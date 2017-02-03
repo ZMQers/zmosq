@@ -48,9 +48,13 @@ extern "C" {
 //
 //      zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "topic", NULL);
 //
-//  Connect to malamute broker and produce messages on stream
+//  Connect to malamute broker
 //
-//      zstr_sendx (zmosq_server, "MLM-CONNECT", "endpoint", "stream", NULL);
+//      zstr_sendx (zmosq_server, "MLM-CONNECT", "endpoint", NULL);
+//
+//  Produce messages on stream
+//
+//      zstr_sendx (zmosq_server, "MLM-PUBLISH", "stream", NULL);
 //
 //  This is the zmosq_server constructor as a zactor_fn;
 ZMSQ_EXPORT void
