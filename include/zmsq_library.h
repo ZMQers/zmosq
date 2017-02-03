@@ -71,8 +71,6 @@ typedef struct _zmosq_server_t zmosq_server_t;
 #define ZMOSQ_SERVER_T_DEFINED
 typedef struct _zmosq_client_t zmosq_client_t;
 #define ZMOSQ_CLIENT_T_DEFINED
-typedef struct _zmosq_server_t zmosq_server_t;
-#define ZMOSQ_SERVER_T_DEFINED
 #endif // ZMSQ_BUILD_DRAFT_API
 
 
