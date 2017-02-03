@@ -20,12 +20,19 @@
 #include "zmsq_classes.h"
 
 //  Structure of our actor
+typedef struct mosquitto* mosquitto_t;
 
 struct _zmosq_server_t {
     zsock_t *pipe;              //  Actor command pipe
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
+    
+    int port;                   //  network port, default 1883
+    const char *host;           //  hostname or ip addr. of the broker
+    mosquitto_t client;         //  mosquito instance
+    int keepalive;              //  how long should broker wait to send ping, [sec]
+    const *char bind_adr;       //  hostname or ip of the local interface
     //  TODO: Declare properties
 };
 
@@ -39,10 +46,18 @@ zmosq_server_new (zsock_t *pipe, void *args)
     zmosq_server_t *self = (zmosq_server_t *) zmalloc (sizeof (zmosq_server_t));
     assert (self);
 
-    self->pipe = pipe;
-    self->terminated = false;
-    self->poller = zpoller_new (self->pipe, NULL);
-
+    if (self)
+    {
+        self->client = mosquitto_new ("client", false, NUL);
+        if (self->client)
+        {
+            self->pipe = pipe;
+            self->terminated = false;
+            self->verbose = false;
+            self->poller = zpoller_new (self->pipe, NULL);
+            self->port = 1883;
+        }
+    }
     //  TODO: Initialize properties
 
     return self;
@@ -58,16 +73,26 @@ zmosq_server_destroy (zmosq_server_t **self_p)
     assert (self_p);
     if (*self_p) {
         zmosq_server_t *self = *self_p;
-
-        //  TODO: Free actor properties
+        
+        zstr_free(&self->host);
 
         //  Free object itself
+        mosquitto_destroy (&self->client);
+        self->client = NULL;
         zpoller_destroy (&self->poller);
         free (self);
         *self_p = NULL;
     }
 }
 
+void
+zmosq_connect (struct mosquitto *mosq, void *obj, int result)
+{
+    assert (self);
+    int rv = mosquitto_subscribe (self->client, NULL, "test", 0);
+    assert (rv != MOSQ_ERR_SUCCESS);
+
+}
 
 //  Start this actor. Return a value greater or equal to zero if initialization
 //  was successful. Otherwise -1.
@@ -75,11 +100,18 @@ zmosq_server_destroy (zmosq_server_t **self_p)
 static int
 zmosq_server_start (zmosq_server_t *self)
 {
-    assert (self);
-
-    //  TODO: Add startup actions
-
-    return 0;
+    mosquitto_connect_callback_set (self->client, zmosq_connect);
+ 	mosquitto_message_callback_set (self->client, zmosq_message);
+    
+    rv = mosquitto_connect_bind (self->client,
+                                     self->host,
+                                     self->port,
+                                     self->keepalive,
+                                     self->bind_adr);
+    if (rv != MOSQ_ERR_SUCCESS)
+        return -1;
+    else
+        return 0;
 }
 
 
@@ -144,6 +176,14 @@ zmosq_server_actor (zsock_t *pipe, void *args)
 
     while (!self->terminated) {
         zsock_t *which = (zsock_t *) zpoller_wait (self->poller, 0);
+
+        if (which == NULL) {
+            if (zpoller_terminated(poller) || zsys_interrupted) {
+                zsys_info ("server is terminating");
+                break;
+            }
+        }
+        
         if (which == self->pipe)
             zmosq_server_recv_api (self);
        //  Add other sockets when you need them.
