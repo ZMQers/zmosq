@@ -22,7 +22,7 @@ extern "C" {
 //  Create new zmosq_server actor instance.
 //  @TODO: Describe the purpose of this actor!
 //
-//      zactor_t *zmosq_server = zactor_new (zmosq_server, NULL);
+//      zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
 //
 //  Destroy zmosq_server instance.
 //
@@ -39,6 +39,18 @@ extern "C" {
 //  Stop zmosq_server actor.
 //
 //      zstr_sendx (zmosq_server, "STOP", NULL);
+//
+//  Connect to mosquitto broker
+//
+//      zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "host", "port", "keepalive", "bind_address", NULL);
+//
+//  Subscribe on MQQT topic
+//
+//      zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "topic", NULL);
+//
+//  Connect to malamute broker and produce messages on stream
+//
+//      zstr_sendx (zmosq_server, "MLM-CONNECT", "endpoint", "stream", NULL);
 //
 //  This is the zmosq_server constructor as a zactor_fn;
 ZMSQ_EXPORT void
