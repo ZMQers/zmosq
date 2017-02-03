@@ -10,7 +10,7 @@
     <version major = "0" minor = "1" />
     <use project = "czmq" />
     <use project = "malamute" />
-    <use project = "mosquitto" />
+    <use project = "mosquitto" test="mosquitto_lib_cleanup"/>
 
     <class name = "zmosq_server">Zmosq actor</class>
     <actor name = "zmosq_server">Zmosq actor</actor>

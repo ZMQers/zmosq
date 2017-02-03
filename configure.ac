@@ -388,7 +388,31 @@ AS_IF([test x"${search_mosquitto}" = xyes], [
         found_pkgconfig="mosquitto"
     ],
     [
-        AC_MSG_WARN([Attribute 'test' is not set on zproject dependency 'mosquitto' - please ensure it is set])
+        AC_MSG_NOTICE([Package mosquitto not found; falling back to defined compilability tests])
+
+        mosquitto_synthetic_cflags=""
+        mosquitto_synthetic_libs="-lmosquitto"
+
+        if test -n "${with_mosquitto}" && test x"${with_mosquitto}" != xyes && test x"${with_mosquitto}" != xno; then
+            if test -r "${with_mosquitto}/include/mosquitto.h"; then
+                mosquitto_synthetic_cflags="-I${with_mosquitto}/include"
+                mosquitto_synthetic_libs="-L${with_mosquitto}/lib -lmosquitto"
+            else
+            AC_MSG_ERROR([Header file ${with_mosquitto}/include/mosquitto.h was not found. Please check mosquitto prefix])
+            fi
+        else
+            AC_CHECK_HEADER([mosquitto.h], [],
+            AC_MSG_ERROR([Header file mosquitto.h was not found in default search paths])
+                )
+        fi
+
+        AC_CHECK_LIB([mosquitto], [mosquitto_lib_cleanup],
+            [
+                was_mosquitto_check_lib_detected=yes
+                PKGCFG_LIBS_PRIVATE="$PKGCFG_LIBS_PRIVATE -lmosquitto"
+                found_linkname="mosquitto"
+            ],
+            [AC_MSG_ERROR([cannot link with -lmosquitto, install mosquitto])])
     ])
 
 dnl END of PKG_CHECK_MODULES and/or direct tests for mosquitto
