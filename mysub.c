@@ -62,7 +62,7 @@ int main () {
         mqtt_client,
         "::1",
         1883,
-        false,
+        10,
         "::1");
     assert (r == MOSQ_ERR_SUCCESS);
 
@@ -70,6 +70,8 @@ int main () {
         mqtt_client,
         -1,
         1);
+
+    mosquitto_disconnect (mqtt_client);
 
     mosquitto_destroy (mqtt_client);
     mqtt_client = NULL;
