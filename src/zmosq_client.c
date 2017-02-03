@@ -22,7 +22,7 @@
 //  Structure of our class
 
 struct _zmosq_client_t {
-    int filler;     //  Declare class properties here
+    zactor_t *zmosq_server;
 };
 
 
@@ -35,6 +35,7 @@ zmosq_client_new (void)
     zmosq_client_t *self = (zmosq_client_t *) zmalloc (sizeof (zmosq_client_t));
     assert (self);
     //  Initialize class properties here
+    self->zmosq_server = zactor_new (zmosq_server_actor, NULL);
     return self;
 }
 
@@ -49,6 +50,7 @@ zmosq_client_destroy (zmosq_client_t **self_p)
     if (*self_p) {
         zmosq_client_t *self = *self_p;
         //  Free class properties here
+        zactor_destroy (&self->zmosq_server);
         //  Free object itself
         free (self);
         *self_p = NULL;

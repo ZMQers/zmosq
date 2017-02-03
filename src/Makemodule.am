@@ -18,7 +18,6 @@ include_HEADERS = \
 
 if ENABLE_DRAFTS
 include_HEADERS += \
-    include/zmosq_server.h \
     include/zmosq_client.h \
     include/zmosq_server.h
 
@@ -28,7 +27,6 @@ src_libzmsq_la_SOURCES = \
 
 if ENABLE_DRAFTS
 src_libzmsq_la_SOURCES += \
-    src/zmosq_server.c \
     src/zmosq_client.c \
     src/zmosq_server.c
 
