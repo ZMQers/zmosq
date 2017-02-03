@@ -11,6 +11,5 @@ fi
 LIBDIR="${MOSQ_BASE}/build/lib/"
 INCDIR="${MOSQ_BASE}/lib/"
 
-gcc -I${INCDIR} -std=c99 mysub.c -L${LIBDIR} -lmosquitto -o mysub && \
-    LD_LIBRARY_PATH=${LIBDIR} ./mysub
+gcc -I${INCDIR} -std=c99 mysub.c -L${LIBDIR} -lmosquitto -o mysub 
 gcc -I${INCDIR} -std=c99 test.c -L${LIBDIR} -lmosquitto -lczmq -o test
