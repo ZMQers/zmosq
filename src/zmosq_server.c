@@ -129,8 +129,7 @@ zmosq_server_recv_api (zmosq_server_t *self)
     zmsg_destroy (&request);
 }
 
-static int s_api_reader (
-           zloop_t *loop, zsock_t *reader, void *arg)
+static int s_api_reader (zloop_t *loop, zsock_t *reader, void *arg)
 {
     zmosq_server_t* self = (zmosq_server_t*) arg;
     zmosq_server_recv_api (self);
@@ -146,7 +145,7 @@ s_mqtt_read (zloop_t *loop, zmq_pollitem_t *item, void *arg)
     return 0;
 }
 
-
+/*
 static void
 s_connect (struct mosquitto *mosq, void *obj, int result) {
     fprintf (stderr, "D: s_connect, result=%d\n", result);
@@ -161,7 +160,7 @@ s_connect (struct mosquitto *mosq, void *obj, int result) {
         fprintf (stderr, "D: s_connect: %s", mosquitto_connack_string (result));
     }
 }
-
+*/
 static void
 s_message (struct mosquitto *mosq, void *obj, const struct mosquitto_message *message)
 {
@@ -187,7 +186,6 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     if (!self)
         return;          //  Interrupted
 
-
     //  Signal actor successfully initiated
     zsock_signal (self->pipe, 0);
 
@@ -200,8 +198,7 @@ zmosq_server_actor (zsock_t *pipe, void *args)
         NULL
     );
     assert (mqtt_client);
-
-    mosquitto_connect_callback_set (mqtt_client, s_connect);
+    
 	mosquitto_message_callback_set (mqtt_client, s_message);
 
     r = mosquitto_connect_bind (
@@ -212,24 +209,25 @@ zmosq_server_actor (zsock_t *pipe, void *args)
         "::1");
     assert (r == MOSQ_ERR_SUCCESS);
 
+    int rv = mosquitto_subscribe (mqtt_client, NULL, "TEST", 0);
+    if (rv != MOSQ_ERR_SUCCESS)
+        printf ("subscribe: error");
+    
     zloop_t *loop = zloop_new ();
     zloop_reader (loop, self->pipe, s_api_reader, (void*) self);
     zmq_pollitem_t it = {NULL, mosquitto_socket (mqtt_client), ZMQ_POLLIN, 0};
     int id = zloop_poller (loop, &it, s_mqtt_read, (void*) mqtt_client);
-    printf ("%d\n",id);
     r = zloop_start (loop);
     assert (r == 0);
+    printf ("%d\n",id);
 
-    
+
     mosquitto_destroy (mqtt_client);
     mqtt_client = NULL;
 
     r = mosquitto_lib_cleanup ();
     assert (r == MOSQ_ERR_SUCCESS);
-
-
     
-
     zmosq_server_destroy (&self);
 }
 
