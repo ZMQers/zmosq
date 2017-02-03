@@ -36,14 +36,14 @@ ZMSQ_EXPORT void
 
 //  Set verbosity   
 ZMSQ_EXPORT void
-    zmosq_client_set_verbose (zmosq_client_t *self, bool verbose);
+    zmosq_client_set_verbose (zmosq_client_t *self);
 
 //  Is client connected to mosquitto broker?
 ZMSQ_EXPORT bool
     zmosq_client_mqtt_connected (zmosq_client_t *self);
 
 //  Connect client to mosquitto broker
-ZMSQ_EXPORT int
+ZMSQ_EXPORT void
     zmosq_client_mqtt_connect (zmosq_client_t *self, const char *host, int port, int keepalive, const char *bind_address);
 
 //  Get mosquitto broker's hostname, to which client is connected   
@@ -68,7 +68,7 @@ ZMSQ_EXPORT void
 
 //  Get mosquitto broker's topics to which client is subscribed
 ZMSQ_EXPORT zlistx_t *
-    zmosq_client_topics (zmosq_client_t *self, const char *topic);
+    zmosq_client_topics (zmosq_client_t *self);
 
 //  Is client connected to malamute broker  
 ZMSQ_EXPORT bool
