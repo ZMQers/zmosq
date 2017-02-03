@@ -1,4 +1,5 @@
 #!/bin/bash
+# MQTT_BASE=/path/to/your/mosquitto/source
 
 set -x
 
