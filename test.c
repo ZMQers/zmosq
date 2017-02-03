@@ -8,9 +8,12 @@ my_message_callback (struct mosquitto *mosq, void *obj, const struct mosquitto_m
     bool res;
 
     if (message->payloadlen) {
+        printf ("%s ", message->topic);
         fwrite (message->payload, 1, message->payloadlen, stdout);
         fflush (stdout);
+        printf ("\n");
     }
+
 }
 
 void my_log_callback (struct mosquitto *mosq, void *obj, int level, const char *str)
@@ -38,7 +41,7 @@ void my_connect_callback (struct mosquitto *mosq, void *obj, int result)
     cfg = (struct mosq_config *)obj;
 
     if (!result) {
-        mosquitto_subscribe (mosq, NULL, "a/b", 0);
+        mosquitto_subscribe (mosq, NULL, "a/b", 2);
     }
     else {
         zsys_error ("%s\n", mosquitto_connack_string (result));
