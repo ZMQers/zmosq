@@ -28,12 +28,11 @@ struct _zmosq_server_t {
     zsock_t *mqtt_writer;
     zuuid_t *uuid;
     mosquitto_t *mosq;
-    // mosquitto_connect_bind_async
-    char *host;
-    int port;
-    int keepalive;
-    char *bind_address;
-    zlist_t *topics;
+    char *host;                 // mosquitto_connect_bind_async
+    int port;                   //
+    int keepalive;              //
+    char *bind_address;         //
+    zlist_t *topics;            //  MQQT topics to subscribe to
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
@@ -54,7 +53,6 @@ zmosq_server_new (zsock_t *pipe, void *args)
     self->terminated = false;
     self->poller = zpoller_new (self->pipe, NULL);
 
-    //  TODO: Initialize properties
     self->uuid = zuuid_new ();
     char *endpoint = zsys_sprintf (" inproc://%s-mqtt", zuuid_str_canonical (self->uuid));
 
@@ -88,9 +86,6 @@ zmosq_server_destroy (zmosq_server_t **self_p)
     if (*self_p) {
         zmosq_server_t *self = *self_p;
 
-        //  TODO: Free actor properties
-
-        //  Free object itself
         zpoller_destroy (&self->poller);
         zuuid_destroy (&self->uuid);
         zsock_destroy (&self->mqtt_writer);
@@ -112,7 +107,7 @@ s_mosquitto_init ()
     if (!initialized) {
         int r = mosquitto_lib_init ();
         if (r != MOSQ_ERR_SUCCESS) {
-            zsys_error ("Cannot initializa mosquitto library: %s", mosquitto_strerror (r));
+            zsys_error ("Cannot initialize mosquitto library: %s", mosquitto_strerror (r));
             exit (EXIT_FAILURE);
         }
         initialized = true;
@@ -136,7 +131,11 @@ zmosq_server_start (zmosq_server_t *self)
         self->port,
         self->keepalive,
         self->bind_address);
-    assert (r == MOSQ_ERR_SUCCESS);
+
+    if (r != MOSQ_ERR_SUCCESS) {
+        zsys_error ("Can't connect to mosquito endpoint, run START again");
+        mosquitto_loop_stop (self->mosq, true);
+    }
 
     return 0;
 }
@@ -220,13 +219,11 @@ zmosq_server_recv_api (zmosq_server_t *self)
 
 static void
 s_connect (struct mosquitto *mosq, void *obj, int result) {
-    zsys_debug ("D: s_connect, result=%d", result);
 
     assert (obj);
     zmosq_server_t *self = (zmosq_server_t*) obj;
 
     if (!result) {
-        zsys_debug ("D: s_connect, !result");
         char *topic = (char*) zlist_first (self->topics);
         while (topic) {
             int r = mosquitto_subscribe (mosq, NULL, "#", 0);
@@ -272,7 +269,7 @@ zmosq_server_actor (zsock_t *pipe, void *args)
 	mosquitto_message_callback_set (self->mosq, s_message);
 
 
-    while (!zsys_interrupted)
+    while (!self->terminated)
     {
         void *which = zpoller_wait (self->poller, -1);
         if (which == pipe)
@@ -280,9 +277,7 @@ zmosq_server_actor (zsock_t *pipe, void *args)
 
         if (which == self->mqtt_reader) {
             zmsg_t *msg = zmsg_recv (self->mqtt_reader);
-            zsys_debug ("=============== s_mosquitto_actor ==========================");
-            zmsg_print (msg);
-            zmsg_destroy (&msg);
+            zmsg_send (&msg, pipe);
         }
     }
 
@@ -297,6 +292,8 @@ void
 zmosq_server_test (bool verbose)
 {
     printf (" * zmosq_server: ");
+    fflush (stdout);
+
     //  @selftest
     //  Simple create/destroy test
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
@@ -304,9 +301,60 @@ zmosq_server_test (bool verbose)
     zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
-    while (!zsys_interrupted)
-        zclock_sleep (1000);
+    mosquitto_t *client = mosquitto_new (
+        "zmosq_server_test_client",
+        false,
+        NULL
+        );
+    assert (client);
 
+    int r = mosquitto_connect_bind (
+        client,
+        "127.0.0.1",
+        1883,
+        10,
+        "127.0.0.1");
+    assert (r == MOSQ_ERR_SUCCESS);
+
+    for (int i =0; i != 20; i++) {
+        mosquitto_loop (client, 500, 1);
+        r = mosquitto_publish (
+            client,
+            NULL,
+            "TOPIC",
+            6,
+            "HELLO\0",
+            0,
+            false);
+        assert (r == MOSQ_ERR_SUCCESS);
+        mosquitto_loop (client, 500, 1);
+    }
+
+    zstr_sendx (zmosq_server, "START", NULL);
+    // check at least 7 messages
+    for (int i =0; i != 7; i++) {
+        zmsg_t *msg = zmsg_recv (zmosq_server);
+        char *topic, *body;
+        topic = zmsg_popstr (msg);
+        body = zmsg_popstr (msg);
+        assert (streq (topic, "TOPIC"));
+        assert (streq (body, "HELLO"));
+        zstr_free (&topic);
+        zstr_free (&body);
+        zmsg_destroy (&msg);
+    }
+
+    mosquitto_disconnect (client);
+    mosquitto_destroy (client);
+
+    zpoller_t *poller = zpoller_new (zmosq_server, NULL);
+    while (true) {
+        void *which = zpoller_wait (poller, 100);
+        if (!which)
+            break;
+        zmsg_t *msg = zmsg_recv (zmosq_server);
+        zmsg_destroy (&msg);
+    }
     zactor_destroy (&zmosq_server);
     //  @end
 
