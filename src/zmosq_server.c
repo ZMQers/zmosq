@@ -26,6 +26,7 @@ struct _zmosq_server_t {
     zsock_t *pipe;              //  Actor command pipe
     zsock_t *mqtt_reader;
     zsock_t *mqtt_writer;
+    zuuid_t *uuid;
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
@@ -47,6 +48,16 @@ zmosq_server_new (zsock_t *pipe, void *args)
     self->poller = zpoller_new (self->pipe, NULL);
 
     //  TODO: Initialize properties
+    self->uuid = zuuid_new ();
+    char *endpoint = zsys_sprintf (" inproc://%s-mqtt", zuuid_str_canonical (self->uuid));
+
+    endpoint [0] = '@';
+    self->mqtt_writer = zsock_new_pair (endpoint);
+    endpoint [0] = '>';
+    self->mqtt_reader  = zsock_new_pair (endpoint);
+    zpoller_add (self->poller, self->mqtt_reader);
+
+    zstr_free (&endpoint);
 
     return self;
 }
@@ -66,6 +77,7 @@ zmosq_server_destroy (zmosq_server_t **self_p)
 
         //  Free object itself
         zpoller_destroy (&self->poller);
+        zuuid_destroy (&self->uuid);
         zsock_destroy (&self->mqtt_writer);
         zsock_destroy (&self->mqtt_reader);
         free (self);
@@ -194,31 +206,23 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     //  Signal actor successfully initiated
     zsock_signal (self->pipe, 0);
 
+    /*
     int r = mosquitto_lib_init ();
     assert (r == MOSQ_ERR_SUCCESS);
-
-    zuuid_t *uuid = zuuid_new ();
-    char *endpoint = zsys_sprintf (" inproc://%s-mqtt", zuuid_str_canonical (uuid));
-    endpoint [0] = '@';
-    self->mqtt_writer = zsock_new_pair (endpoint);
-    endpoint [0] = '>';
-    self->mqtt_reader  = zsock_new_pair (endpoint);
-    zstr_free (&endpoint);
-
-    zpoller_t *poller = zpoller_new (pipe, self->mqtt_reader, NULL);
+    */
 
     mosquitto_t *mosq = mosquitto_new (
-        zuuid_str_canonical (uuid),
+        zuuid_str_canonical (self->uuid),
         false,
         self
     );
     assert (mosq);
-    zuuid_destroy (&uuid);
     
     mosquitto_connect_callback_set (mosq, s_connect);
 	mosquitto_message_callback_set (mosq, s_message);
 
     mosquitto_loop_start (mosq);
+    int r;
     r = mosquitto_connect_bind_async (
         mosq,
         "127.0.0.1",
@@ -229,7 +233,7 @@ zmosq_server_actor (zsock_t *pipe, void *args)
 
     while (!zsys_interrupted)
     {
-        void *which = zpoller_wait (poller, -1);
+        void *which = zpoller_wait (self->poller, -1);
         if (which == pipe)
             zmosq_server_recv_api (self);
 
