@@ -107,12 +107,6 @@ s_mosquitto_init ()
     }
 }
 
-static void
-s_mosquitto_destroy ()
-{
-    mosquitto_lib_cleanup ();
-}
-
 //  Start this actor. Return a value greater or equal to zero if initialization
 //  was successful. Otherwise -1.
 
@@ -120,8 +114,6 @@ static int
 zmosq_server_start (zmosq_server_t *self)
 {
     assert (self);
-
-    s_mosquitto_init ();
 
     return 0;
 }
@@ -136,7 +128,6 @@ zmosq_server_stop (zmosq_server_t *self)
     assert (self);
 
     //  TODO: Add shutdown actions
-    s_mosquitto_destroy ();
 
     return 0;
 }
@@ -207,6 +198,8 @@ s_message (struct mosquitto *mosq, void *obj, const struct mosquitto_message *me
 void
 zmosq_server_actor (zsock_t *pipe, void *args)
 {
+    s_mosquitto_init ();
+
     zmosq_server_t * self = zmosq_server_new (pipe, args);
     if (!self)
         return;          //  Interrupted
@@ -245,6 +238,7 @@ zmosq_server_actor (zsock_t *pipe, void *args)
 
     assert (r == MOSQ_ERR_SUCCESS);
     
+    mosquitto_lib_cleanup ();
     zmosq_server_destroy (&self);
 }
 
