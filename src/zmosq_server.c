@@ -27,6 +27,7 @@ struct _zmosq_server_t {
     zsock_t *mqtt_reader;
     zsock_t *mqtt_writer;
     zuuid_t *uuid;
+    mosquitto_t *mosq;
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
@@ -59,6 +60,11 @@ zmosq_server_new (zsock_t *pipe, void *args)
 
     zstr_free (&endpoint);
 
+    self->mosq = mosquitto_new (
+        zuuid_str_canonical (self->uuid),
+        false,
+        self);
+
     return self;
 }
 
@@ -80,6 +86,8 @@ zmosq_server_destroy (zmosq_server_t **self_p)
         zuuid_destroy (&self->uuid);
         zsock_destroy (&self->mqtt_writer);
         zsock_destroy (&self->mqtt_reader);
+        if (self->mosq)
+            mosquitto_destroy (self->mosq);
         free (self);
         *self_p = NULL;
     }
@@ -206,25 +214,13 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     //  Signal actor successfully initiated
     zsock_signal (self->pipe, 0);
 
-    /*
-    int r = mosquitto_lib_init ();
-    assert (r == MOSQ_ERR_SUCCESS);
-    */
+    mosquitto_connect_callback_set (self->mosq, s_connect);
+	mosquitto_message_callback_set (self->mosq, s_message);
 
-    mosquitto_t *mosq = mosquitto_new (
-        zuuid_str_canonical (self->uuid),
-        false,
-        self
-    );
-    assert (mosq);
-    
-    mosquitto_connect_callback_set (mosq, s_connect);
-	mosquitto_message_callback_set (mosq, s_message);
-
-    mosquitto_loop_start (mosq);
+    mosquitto_loop_start (self->mosq);
     int r;
     r = mosquitto_connect_bind_async (
-        mosq,
+        self->mosq,
         "127.0.0.1",
         1883, 
         10,
@@ -245,12 +241,8 @@ zmosq_server_actor (zsock_t *pipe, void *args)
         }
     }
 
-    mosquitto_loop_stop (mosq, true);
+    mosquitto_loop_stop (self->mosq, true);
 
-    mosquitto_destroy (mosq);
-    mosq = NULL;
-
-    r = mosquitto_lib_cleanup ();
     assert (r == MOSQ_ERR_SUCCESS);
     
     zmosq_server_destroy (&self);
