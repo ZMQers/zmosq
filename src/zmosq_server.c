@@ -33,6 +33,7 @@ struct _zmosq_server_t {
     int port;
     int keepalive;
     char *bind_address;
+    zlist_t *topics;
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
@@ -70,6 +71,9 @@ zmosq_server_new (zsock_t *pipe, void *args)
         false,
         self);
 
+    self->topics = zlist_new ();
+    zlist_autofree (self->topics);
+
     return self;
 }
 
@@ -95,6 +99,7 @@ zmosq_server_destroy (zmosq_server_t **self_p)
             mosquitto_destroy (self->mosq);
         zstr_free (&self->host);
         zstr_free (&self->bind_address);
+        zlist_destroy (&self->topics);
         free (self);
         *self_p = NULL;
     }
@@ -192,6 +197,14 @@ zmosq_server_recv_api (zmosq_server_t *self)
             self->bind_address = strdup (self->host);
     }
     else
+    if (streq (command, "MOSQUITTO-SUBSCRIBE")) {
+        char *topic = zmsg_popstr (request);
+        while (topic) {
+            zlist_append (self->topics, topic);
+            zstr_free (&topic);
+        }
+    }
+    else
     if (streq (command, "$TERM")) {
         //  The $TERM command is send by zactor_destroy() method
         self->terminated = true;
@@ -209,10 +222,17 @@ static void
 s_connect (struct mosquitto *mosq, void *obj, int result) {
     zsys_debug ("D: s_connect, result=%d", result);
 
+    assert (obj);
+    zmosq_server_t *self = (zmosq_server_t*) obj;
+
     if (!result) {
         zsys_debug ("D: s_connect, !result");
-        int r = mosquitto_subscribe (mosq, NULL, "#", 0);
-        assert (r == MOSQ_ERR_SUCCESS);
+        char *topic = (char*) zlist_first (self->topics);
+        while (topic) {
+            int r = mosquitto_subscribe (mosq, NULL, "#", 0);
+            assert (r == MOSQ_ERR_SUCCESS);
+            topic = (char*) zlist_next (self->topics);
+        }
     }
 }
 
@@ -281,6 +301,7 @@ zmosq_server_test (bool verbose)
     //  Simple create/destroy test
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
     zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", "1883", "10", "127.0.0.1", NULL);
+    zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
     while (!zsys_interrupted)
