@@ -28,6 +28,11 @@ struct _zmosq_server_t {
     zsock_t *mqtt_writer;
     zuuid_t *uuid;
     mosquitto_t *mosq;
+    // mosquitto_connect_bind_async
+    char *host;
+    int port;
+    int keepalive;
+    char *bind_address;
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
@@ -88,6 +93,8 @@ zmosq_server_destroy (zmosq_server_t **self_p)
         zsock_destroy (&self->mqtt_reader);
         if (self->mosq)
             mosquitto_destroy (self->mosq);
+        zstr_free (&self->host);
+        zstr_free (&self->bind_address);
         free (self);
         *self_p = NULL;
     }
@@ -120,10 +127,10 @@ zmosq_server_start (zmosq_server_t *self)
     int r;
     r = mosquitto_connect_bind_async (
         self->mosq,
-        "127.0.0.1",
-        1883,
-        10,
-        "127.0.0.1");
+        self->host,
+        self->port,
+        self->keepalive,
+        self->bind_address);
     assert (r == MOSQ_ERR_SUCCESS);
 
     return 0;
@@ -137,6 +144,7 @@ static int
 zmosq_server_stop (zmosq_server_t *self)
 {
     assert (self);
+    assert (self->mosq);
 
     //  TODO: Add shutdown actions
     mosquitto_loop_stop (self->mosq, true);
@@ -164,6 +172,25 @@ zmosq_server_recv_api (zmosq_server_t *self)
     else
     if (streq (command, "VERBOSE"))
         self->verbose = true;
+    else
+    if (streq (command, "MOSQUITTO-CONNECT")) {
+        self->host = zmsg_popstr (request);
+        assert (self->host);
+
+        char *foo = zmsg_popstr (request);
+        self->port = atoi (foo);
+        zstr_free (&foo);
+
+        foo = zmsg_popstr (request);
+        self->keepalive = atoi (foo);
+        if (self->keepalive <= 3)
+            self->keepalive = 3;
+        zstr_free (&foo);
+
+        self->bind_address = zmsg_popstr (request);
+        if (!self->bind_address)
+            self->bind_address = strdup (self->host);
+    }
     else
     if (streq (command, "$TERM")) {
         //  The $TERM command is send by zactor_destroy() method
@@ -217,7 +244,6 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     zmosq_server_t * self = zmosq_server_new (pipe, args);
     if (!self)
         return;          //  Interrupted
-    int r = 0;
 
     //  Signal actor successfully initiated
     zsock_signal (self->pipe, 0);
@@ -240,8 +266,6 @@ zmosq_server_actor (zsock_t *pipe, void *args)
         }
     }
 
-    assert (r == MOSQ_ERR_SUCCESS);
-    
     mosquitto_lib_cleanup ();
     zmosq_server_destroy (&self);
 }
@@ -256,7 +280,8 @@ zmosq_server_test (bool verbose)
     //  @selftest
     //  Simple create/destroy test
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
-    zstr_sendx (zmosq_server, "START");
+    zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", "1883", "10", "127.0.0.1", NULL);
+    zstr_sendx (zmosq_server, "START", NULL);
 
     while (!zsys_interrupted)
         zclock_sleep (1000);
