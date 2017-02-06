@@ -24,6 +24,8 @@ typedef struct mosquitto mosquitto_t;
 
 struct _zmosq_server_t {
     zsock_t *pipe;              //  Actor command pipe
+    zsock_t *mqtt_reader;
+    zsock_t *mqtt_writer;
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
@@ -64,6 +66,8 @@ zmosq_server_destroy (zmosq_server_t **self_p)
 
         //  Free object itself
         zpoller_destroy (&self->poller);
+        zsock_destroy (&self->mqtt_writer);
+        zsock_destroy (&self->mqtt_reader);
         free (self);
         *self_p = NULL;
     }
@@ -129,52 +133,33 @@ zmosq_server_recv_api (zmosq_server_t *self)
     zmsg_destroy (&request);
 }
 
-static int s_api_reader (zloop_t *loop, zsock_t *reader, void *arg)
-{
-    zmosq_server_t* self = (zmosq_server_t*) arg;
-    zmosq_server_recv_api (self);
-    return 0;
-}
-
-static int
-s_mqtt_read (zloop_t *loop, zmq_pollitem_t *item, void *arg)
-{
-    fprintf (stderr, "D: s_mqtt_read: ");
-    struct mosquitto *mqtt_client = (struct mosquitto*) arg;
-    mosquitto_loop_read (mqtt_client, 1);
-    return 0;
-}
-
-/*
 static void
 s_connect (struct mosquitto *mosq, void *obj, int result) {
-    fprintf (stderr, "D: s_connect, result=%d\n", result);
+    zsys_debug ("D: s_connect, result=%d", result);
 
     if (!result) {
-        fprintf (stderr, "D: !s_connect, !result\n");
-        int r = mosquitto_subscribe (mosq, NULL, "TEST", 0);
+        zsys_debug ("D: s_connect, !result");
+        int r = mosquitto_subscribe (mosq, NULL, "#", 0);
         assert (r == MOSQ_ERR_SUCCESS);
     }
-    else
-    {
-        fprintf (stderr, "D: s_connect: %s", mosquitto_connack_string (result));
-    }
 }
-*/
+
 static void
 s_message (struct mosquitto *mosq, void *obj, const struct mosquitto_message *message)
 {
 	assert(obj);
-		if(message->payloadlen){
-			printf("%s ", message->topic);
-			fwrite(message->payload, 1, message->payloadlen, stdout);
-				printf("\n");
-		}else{
-				printf("%s (null)\n", message->topic);
-		}
-		fflush(stdout);
-}
 
+    zmosq_server_t *self = (zmosq_server_t*) obj;
+    assert (self);
+    zsock_t *mqtt_writer = self->mqtt_writer;
+    assert (mqtt_writer);
+
+    zmsg_t *msg = zmsg_new ();
+    zmsg_addstr (msg, message->topic);
+    if (message->payload)
+        zmsg_addmem (msg, message->payload, message->payloadlen);
+    zmsg_send (&msg, mqtt_writer);
+}
 
 //  --------------------------------------------------------------------------
 //  This is the actor which runs in its own thread.
@@ -192,38 +177,54 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     int r = mosquitto_lib_init ();
     assert (r == MOSQ_ERR_SUCCESS);
 
-    mosquitto_t *mqtt_client = mosquitto_new (
-        "mysub-MVY",
-        false,
-        NULL
-    );
-    assert (mqtt_client);
-    
-	mosquitto_message_callback_set (mqtt_client, s_message);
+    zuuid_t *uuid = zuuid_new ();
+    char *endpoint = zsys_sprintf (" inproc://%s-mqtt", zuuid_str_canonical (uuid));
+    endpoint [0] = '@';
+    self->mqtt_writer = zsock_new_pair (endpoint);
+    endpoint [0] = '>';
+    self->mqtt_reader  = zsock_new_pair (endpoint);
+    zstr_free (&endpoint);
 
-    r = mosquitto_connect_bind (
-        mqtt_client,
-        "::1",
-        1883,
+    zpoller_t *poller = zpoller_new (pipe, self->mqtt_reader, NULL);
+
+    mosquitto_t *mosq = mosquitto_new (
+        zuuid_str_canonical (uuid),
         false,
-        "::1");
+        self
+    );
+    assert (mosq);
+    zuuid_destroy (&uuid);
+    
+    mosquitto_connect_callback_set (mosq, s_connect);
+	mosquitto_message_callback_set (mosq, s_message);
+
+    mosquitto_loop_start (mosq);
+    r = mosquitto_connect_bind_async (
+        mosq,
+        "127.0.0.1",
+        1883, 
+        10,
+        "127.0.0.1");
     assert (r == MOSQ_ERR_SUCCESS);
 
-    int rv = mosquitto_subscribe (mqtt_client, NULL, "TEST", 0);
-    if (rv != MOSQ_ERR_SUCCESS)
-        printf ("subscribe: error");
-    
-    zloop_t *loop = zloop_new ();
-    zloop_reader (loop, self->pipe, s_api_reader, (void*) self);
-    zmq_pollitem_t it = {NULL, mosquitto_socket (mqtt_client), ZMQ_POLLIN, 0};
-    int id = zloop_poller (loop, &it, s_mqtt_read, (void*) mqtt_client);
-    r = zloop_start (loop);
-    assert (r == 0);
-    printf ("%d\n",id);
+    while (!zsys_interrupted)
+    {
+        void *which = zpoller_wait (poller, -1);
+        if (which == pipe)
+            zmosq_server_recv_api (self);
 
+        if (which == self->mqtt_reader) {
+            zmsg_t *msg = zmsg_recv (self->mqtt_reader);
+            zsys_debug ("=============== s_mosquitto_actor ==========================");
+            zmsg_print (msg);
+            zmsg_destroy (&msg);
+        }
+    }
 
-    mosquitto_destroy (mqtt_client);
-    mqtt_client = NULL;
+    mosquitto_loop_stop (mosq, true);
+
+    mosquitto_destroy (mosq);
+    mosq = NULL;
 
     r = mosquitto_lib_cleanup ();
     assert (r == MOSQ_ERR_SUCCESS);
