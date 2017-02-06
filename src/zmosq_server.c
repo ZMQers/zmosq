@@ -114,6 +114,17 @@ static int
 zmosq_server_start (zmosq_server_t *self)
 {
     assert (self);
+    assert (self->mosq);
+
+    mosquitto_loop_start (self->mosq);
+    int r;
+    r = mosquitto_connect_bind_async (
+        self->mosq,
+        "127.0.0.1",
+        1883,
+        10,
+        "127.0.0.1");
+    assert (r == MOSQ_ERR_SUCCESS);
 
     return 0;
 }
@@ -128,13 +139,13 @@ zmosq_server_stop (zmosq_server_t *self)
     assert (self);
 
     //  TODO: Add shutdown actions
+    mosquitto_loop_stop (self->mosq, true);
+    mosquitto_disconnect (self->mosq);
 
     return 0;
 }
 
-
 //  Here we handle incoming message from the node
-
 static void
 zmosq_server_recv_api (zmosq_server_t *self)
 {
@@ -147,15 +158,18 @@ zmosq_server_recv_api (zmosq_server_t *self)
     if (streq (command, "START"))
         zmosq_server_start (self);
     else
-    if (streq (command, "STOP"))
+    if (streq (command, "STOP")) {
         zmosq_server_stop (self);
+    }
     else
     if (streq (command, "VERBOSE"))
         self->verbose = true;
     else
-    if (streq (command, "$TERM"))
+    if (streq (command, "$TERM")) {
         //  The $TERM command is send by zactor_destroy() method
         self->terminated = true;
+        zmosq_server_stop (self);
+    }
     else {
         zsys_error ("invalid command '%s'", command);
         assert (false);
@@ -203,6 +217,7 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     zmosq_server_t * self = zmosq_server_new (pipe, args);
     if (!self)
         return;          //  Interrupted
+    int r = 0;
 
     //  Signal actor successfully initiated
     zsock_signal (self->pipe, 0);
@@ -210,15 +225,6 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     mosquitto_connect_callback_set (self->mosq, s_connect);
 	mosquitto_message_callback_set (self->mosq, s_message);
 
-    mosquitto_loop_start (self->mosq);
-    int r;
-    r = mosquitto_connect_bind_async (
-        self->mosq,
-        "127.0.0.1",
-        1883, 
-        10,
-        "127.0.0.1");
-    assert (r == MOSQ_ERR_SUCCESS);
 
     while (!zsys_interrupted)
     {
@@ -233,8 +239,6 @@ zmosq_server_actor (zsock_t *pipe, void *args)
             zmsg_destroy (&msg);
         }
     }
-
-    mosquitto_loop_stop (self->mosq, true);
 
     assert (r == MOSQ_ERR_SUCCESS);
     
@@ -253,6 +257,9 @@ zmosq_server_test (bool verbose)
     //  Simple create/destroy test
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
     zstr_sendx (zmosq_server, "START");
+
+    while (!zsys_interrupted)
+        zclock_sleep (1000);
 
     zactor_destroy (&zmosq_server);
     //  @end
