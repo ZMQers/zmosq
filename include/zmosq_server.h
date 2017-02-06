@@ -32,19 +32,11 @@ extern "C" {
 //
 //      zstr_send (zmosq_server, "VERBOSE");
 //
-//  Start zmosq_server actor.
-//
-//      zstr_sendx (zmosq_server, "START", NULL);
-//
-//  Stop zmosq_server actor.
-//
-//      zstr_sendx (zmosq_server, "STOP", NULL);
-//
 //  Connect to mosquitto broker
 //
 //      zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "host", "port", "keepalive", "bind_address", NULL);
 //
-//  Subscribe on MQQT topic
+//  Subscribe on MQQT topic (can be repeated, or more topics can be specified here)
 //
 //      zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "topic", NULL);
 //
@@ -52,9 +44,18 @@ extern "C" {
 //
 //      zstr_sendx (zmosq_server, "MLM-CONNECT", "endpoint", NULL);
 //
-//  Produce messages on stream
+//  Publish on stream
 //
-//      zstr_sendx (zmosq_server, "MLM-PUBLISH", "stream", NULL);
+//      zstr_sendx (zmosq_server, "MLM-STREAM", "stream", NULL);
+//
+//  Start zmosq_server actor - all broker related commands must be called before!
+//
+//      zstr_sendx (zmosq_server, "START", NULL);
+//
+//  Stop zmosq_server actor.
+//
+//      zstr_sendx (zmosq_server, "STOP", NULL);
+//
 //
 //  This is the zmosq_server constructor as a zactor_fn;
 ZMSQ_EXPORT void
