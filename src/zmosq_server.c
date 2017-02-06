@@ -269,7 +269,7 @@ zmosq_server_actor (zsock_t *pipe, void *args)
 	mosquitto_message_callback_set (self->mosq, s_message);
 
 
-    while (!zsys_interrupted)
+    while (!self->terminated)
     {
         void *which = zpoller_wait (self->poller, -1);
         if (which == pipe)
@@ -292,6 +292,8 @@ void
 zmosq_server_test (bool verbose)
 {
     printf (" * zmosq_server: ");
+    fflush (stdout);
+
     //  @selftest
     //  Simple create/destroy test
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
@@ -299,12 +301,60 @@ zmosq_server_test (bool verbose)
     zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
-    while (!zsys_interrupted) {
+    mosquitto_t *client = mosquitto_new (
+        "zmosq_server_test_client",
+        false,
+        NULL
+        );
+    assert (client);
+
+    int r = mosquitto_connect_bind (
+        client,
+        "127.0.0.1",
+        1883,
+        10,
+        "127.0.0.1");
+    assert (r == MOSQ_ERR_SUCCESS);
+
+    for (int i =0; i != 20; i++) {
+        mosquitto_loop (client, 500, 1);
+        r = mosquitto_publish (
+            client,
+            NULL,
+            "TOPIC",
+            6,
+            "HELLO\0",
+            0,
+            false);
+        assert (r == MOSQ_ERR_SUCCESS);
+        mosquitto_loop (client, 500, 1);
+    }
+
+    zstr_sendx (zmosq_server, "START", NULL);
+    // check at least 7 messages
+    for (int i =0; i != 7; i++) {
         zmsg_t *msg = zmsg_recv (zmosq_server);
-        zmsg_print (msg);
+        char *topic, *body;
+        topic = zmsg_popstr (msg);
+        body = zmsg_popstr (msg);
+        assert (streq (topic, "TOPIC"));
+        assert (streq (body, "HELLO"));
+        zstr_free (&topic);
+        zstr_free (&body);
         zmsg_destroy (&msg);
     }
 
+    mosquitto_disconnect (client);
+    mosquitto_destroy (client);
+
+    zpoller_t *poller = zpoller_new (zmosq_server, NULL);
+    while (true) {
+        void *which = zpoller_wait (poller, 100);
+        if (!which)
+            break;
+        zmsg_t *msg = zmsg_recv (zmosq_server);
+        zmsg_destroy (&msg);
+    }
     zactor_destroy (&zmosq_server);
     //  @end
 
