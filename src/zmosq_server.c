@@ -73,6 +73,25 @@ zmosq_server_destroy (zmosq_server_t **self_p)
     }
 }
 
+static void
+s_mosquitto_init ()
+{
+    static bool initialized = false;
+    if (!initialized) {
+        int r = mosquitto_lib_init ();
+        if (r != MOSQ_ERR_SUCCESS) {
+            zsys_error ("Cannot initializa mosquitto library: %s", mosquitto_strerror (r));
+            exit (EXIT_FAILURE);
+        }
+        initialized = true;
+    }
+}
+
+static void
+s_mosquitto_destroy ()
+{
+    mosquitto_lib_cleanup ();
+}
 
 //  Start this actor. Return a value greater or equal to zero if initialization
 //  was successful. Otherwise -1.
@@ -82,7 +101,7 @@ zmosq_server_start (zmosq_server_t *self)
 {
     assert (self);
 
-    //  TODO: Add startup actions
+    s_mosquitto_init ();
 
     return 0;
 }
@@ -97,6 +116,7 @@ zmosq_server_stop (zmosq_server_t *self)
     assert (self);
 
     //  TODO: Add shutdown actions
+    s_mosquitto_destroy ();
 
     return 0;
 }
@@ -242,6 +262,7 @@ zmosq_server_test (bool verbose)
     //  @selftest
     //  Simple create/destroy test
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
+    zstr_sendx (zmosq_server, "START");
 
     zactor_destroy (&zmosq_server);
     //  @end
