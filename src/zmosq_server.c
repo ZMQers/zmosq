@@ -12,8 +12,13 @@
 
 /*
 @header
-    zmosq_server - Zmosq actor
+    zmosq_server - Zmosq actor forwarding MQTT messages to zeromq
 @discuss
+zmosq connects to remote Mosquito server, subscribes for topics and make them
+available as zeromq messages on the inproc pipe. It spawns and stops mosquitto
+client thread and provides standard interface on how to read data from MQTT.
+
+Each zeromq message has two frames [MQTT topic|MQTT payload]
 @end
 */
 
@@ -36,7 +41,6 @@ struct _zmosq_server_t {
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
-    //  TODO: Declare properties
 };
 
 
