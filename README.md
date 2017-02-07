@@ -1,29 +1,39 @@
+[![Build Status](https://travis-ci.org/ZMQers/zmosq.png?branch=master)](https://travis-ci.org/ZMQers/zmosq)
+
 # zmosq
-Mosquitto/ZeroMQ/Malamute gateway
+Mosquitto (MQQT)/ZeroMQ gateway
 
 ## About
-MQTT is a lightweight publish/subscribe messaging protocol. Popular amongs Internet of Things (IoT) devices. ZeroMQ is popular messaging library to connect various applications using enhanced sockets and communication patterns. Malamute is a broker built on top of ZeroMQ library.
+[MQTT](https://mqtt.org) is a lightweight publish/subscribe messaging protocol. Popular amongs Internet of Things (IoT) devices. [Mosquitto](https://mosquitto.org/) is opensource MQTT broker and client library. A part of [Eclipse IoT platform](https://iot.eclipse.org/).
+
+[ZeroMQ](https://zeromq.org) is popular messaging library to connect various applications using enhanced sockets and communication patterns.
 
 ## zmosq proxy
 
-The zmosq proxy connects to [Mosquitto](https://mosquitto.org/) broker as MQTT client, subscribes on one or more topics and forward messages to Malamute, to be consumed by Malamute clients. This design handles all the details of MQQT protocol (will, QoS levels, ...) on Mosquitto, while providing lightweight way how to get data into Malamute.
+The zmosq proxy is [actor](http://czmq.zeromq.org/manual:zactor) maintaining MQTT client connection in a background. It allows users to connect to MQTT broker, subscribe to one or more topics and publish them as [ZMTP](https://rfc.zeromq.org/spec:23/ZMTP/) messages.
 
-Current design forwards message one-way MQQT->Malamute.
+Those messages have two frames [MQTT topic|MQTT payload]. Those are sent to zmosq pipe, so can be read from actor itself.
 
 ## How to build
 
-git clone git://github.com/zeromq/libzmq.git
-git clone git://github.com/zeromq/czmq.git
-git clone git://github.com/zeromq/malamute.git
-git clone git://github.com/zmosq/zmosq.git
-for project in libzmq czmq malamute zmosq; do
-    cd $project
-    ./autogen.sh
-    ./configure && make check
-    sudo make install
+    git clone git://github.com/eclipse/mosquitto.git
+    cd mosquitto
+    mkdir build && cd build
+    cmake ..
+    make install
     sudo ldconfig
-    cd ..
-done
+    cd ../../
+
+    git clone git://github.com/zeromq/libzmq.git
+    git clone git://github.com/zeromq/czmq.git
+    for project in libzmq czmq; do
+        cd $project
+        ./autogen.sh
+        ./configure && make check
+        sudo make install
+        sudo ldconfig
+        cd ..
+    done
 
 ## How to Help
 
