@@ -11,8 +11,6 @@
 *.xml7
 
 # Ignore the source doc texts generated from program sources
-zmosq_server.txt
-zmosq_server.doc
 zmosq_client.txt
 zmosq_client.doc
 zmosq_server.txt

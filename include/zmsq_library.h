@@ -22,7 +22,6 @@
 
 //  External dependencies
 #include <czmq.h>
-#include <malamute.h>
 #include <mosquitto.h>
 
 //  ZMSQ version macros for compile-time API detection
@@ -67,16 +66,15 @@
 //  These classes are stable or legacy and built in all releases
 //  Draft classes are by default not built in stable releases
 #ifdef ZMSQ_BUILD_DRAFT_API
-typedef struct _zmosq_server_t zmosq_server_t;
-#define ZMOSQ_SERVER_T_DEFINED
 typedef struct _zmosq_client_t zmosq_client_t;
 #define ZMOSQ_CLIENT_T_DEFINED
+typedef struct _zmosq_server_t zmosq_server_t;
+#define ZMOSQ_SERVER_T_DEFINED
 #endif // ZMSQ_BUILD_DRAFT_API
 
 
 //  Public classes, each with its own header file
 #ifdef ZMSQ_BUILD_DRAFT_API
-#include "zmosq_server.h"
 #include "zmosq_client.h"
 #include "zmosq_server.h"
 #endif // ZMSQ_BUILD_DRAFT_API

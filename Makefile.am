@@ -12,11 +12,10 @@ AM_CFLAGS = \
 AM_CPPFLAGS = \
     ${libzmq_CFLAGS} \
     ${czmq_CFLAGS} \
-    ${malamute_CFLAGS} \
     ${mosquitto_CFLAGS} \
     -I$(srcdir)/include
 
-project_libs = ${libzmq_LIBS} ${czmq_LIBS} ${malamute_LIBS} ${mosquitto_LIBS}
+project_libs = ${libzmq_LIBS} ${czmq_LIBS} ${mosquitto_LIBS}
 
 SUBDIRS = doc
 DIST_SUBDIRS = doc
@@ -36,7 +35,6 @@ if ENABLE_DIST_CMAKEFILES
 EXTRA_DIST += \
     Findlibzmq.cmake \
     Findczmq.cmake \
-    Findmalamute.cmake \
     Findmosquitto.cmake \
     CMakeLists.txt
 endif
@@ -44,6 +42,7 @@ endif
 EXTRA_DIST += \
     LICENSE \
     README.md \
+    CONTRIBUTING.md \
     src/zmsq_classes.h
 
 include $(srcdir)/src/Makemodule.am

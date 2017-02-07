@@ -29,7 +29,6 @@ static test_item_t
 all_tests [] = {
 #ifdef ZMSQ_BUILD_DRAFT_API
 // Tests for draft public classes:
-    { "zmosq_server", zmosq_server_test },
     { "zmosq_client", zmosq_client_test },
     { "zmosq_server", zmosq_server_test },
 #endif // ZMSQ_BUILD_DRAFT_API
@@ -93,14 +92,13 @@ main (int argc, char **argv)
         else
         if (streq (argv [argn], "--number")
         ||  streq (argv [argn], "-n")) {
-            puts ("3");
+            puts ("2");
             return 0;
         }
         else
         if (streq (argv [argn], "--list")
         ||  streq (argv [argn], "-l")) {
             puts ("Available tests:");
-            puts ("    zmosq_server\t\t- draft");
             puts ("    zmosq_client\t\t- draft");
             puts ("    zmosq_server\t\t- draft");
             puts ("    private_classes\t- draft");

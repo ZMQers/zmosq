@@ -30,3 +30,24 @@
    fun:_GLOBAL__sub_I_eh_alloc.cc
    ...
 }
+{
+   <CRYPTO_malloc>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:CRYPTO_malloc
+   ...
+}
+{
+   <FIPS_leak>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:_dlerror_run
+   fun:dlopen@@GLIBC_2.2.5
+   obj:/lib64/libcrypto.so.1.0.0
+   obj:/lib64/libcrypto.so.1.0.0
+   fun:FIPS_module_mode_set
+   fun:FIPS_mode_set
+   ...
+}
