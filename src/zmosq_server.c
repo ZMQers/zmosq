@@ -398,6 +398,7 @@ zmosq_server_test (bool verbose)
         zmsg_t *msg = zmsg_recv (zmosq_server);
         zmsg_destroy (&msg);
     }
+    zpoller_destroy (&poller);
     zactor_destroy (&zmosq_server);
     //  @end
     zstr_free (&PORTA);
