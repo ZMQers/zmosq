@@ -12,7 +12,7 @@ Name: libzmsq
 Description: ZeroMQ/Malamute/Mosquitto (MQQT) proxy
 Version: @VERSION@
 
-Requires:@pkgconfig_name_libzmq@ @pkgconfig_name_libczmq@ @pkgconfig_name_libmlm@ @pkgconfig_name_mosquitto@
+Requires:@pkgconfig_name_libzmq@ @pkgconfig_name_libczmq@ @pkgconfig_name_mosquitto@
 
 Libs: -L${libdir} -lzmsq
 Cflags: -I${includedir} @pkg_config_defines@

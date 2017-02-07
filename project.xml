@@ -9,10 +9,8 @@
     <include filename = "license.xml" />
     <version major = "0" minor = "1" />
     <use project = "czmq" />
-    <use project = "malamute" />
     <use project = "mosquitto" test="mosquitto_lib_cleanup"/>
 
-    <class name = "zmosq_server">Zmosq actor</class>
     <actor name = "zmosq_server">Zmosq actor</actor>
     <class name = "zmosq_client">Zmosq client</class>
     

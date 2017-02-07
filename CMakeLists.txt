@@ -104,18 +104,6 @@ ELSE (CZMQ_FOUND)
 ENDIF (CZMQ_FOUND)
 
 ########################################################################
-# MALAMUTE dependency
-########################################################################
-find_package(malamute REQUIRED)
-IF (MALAMUTE_FOUND)
-    include_directories(${MALAMUTE_INCLUDE_DIRS})
-    list(APPEND MORE_LIBRARIES ${MALAMUTE_LIBRARIES})
-    set(pkg_config_libs_private "${pkg_config_libs_private} -lmlm")
-ELSE (MALAMUTE_FOUND)
-    message( FATAL_ERROR "malamute not found." )
-ENDIF (MALAMUTE_FOUND)
-
-########################################################################
 # MOSQUITTO dependency
 ########################################################################
 find_package(mosquitto REQUIRED)
@@ -137,7 +125,6 @@ set (zmsq_headers
 
 IF (ENABLE_DRAFTS)
     list(APPEND zmsq_headers
-        include/zmosq_server.h
         include/zmosq_client.h
         include/zmosq_server.h
     )
@@ -155,7 +142,6 @@ set (zmsq_sources
 
 IF (ENABLE_DRAFTS)
     list (APPEND zmsq_sources
-        src/zmosq_server.c
         src/zmosq_client.c
         src/zmosq_server.c
     )
@@ -223,7 +209,6 @@ target_link_libraries(
     zmsq
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
-    ${MALAMUTE_LIBRARIES}
     ${MOSQUITTO_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
@@ -246,7 +231,6 @@ set(TEST_CLASSES
 
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
-    zmosq_server
     zmosq_client
     zmosq_server
     )
