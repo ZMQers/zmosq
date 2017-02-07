@@ -31,7 +31,6 @@ all_tests [] = {
 // Tests for draft public classes:
     { "zmosq_server", zmosq_server_test },
     { "zmosq_client", zmosq_client_test },
-    { "zmosq_server", zmosq_server_test },
 #endif // ZMSQ_BUILD_DRAFT_API
 #ifdef ZMSQ_BUILD_DRAFT_API
     { "private_classes", zmsq_private_selftest },
