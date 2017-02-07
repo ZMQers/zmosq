@@ -15,17 +15,17 @@ The zmosq proxy is [actor](http://czmq.zeromq.org/manual:zactor) maintaining MQT
 Those messages have two frames [MQTT topic|MQTT payload]. Those are sent to zmosq pipe, so can be read from actor itself.
 
 
- +-------------+              +------------+            +-------------------+
- |             |              |            |            |                   |
- |             | publish      |            |  subscribe | Mosquitto client  |
- | MQTT client | ===========> | Mosquitto  | <========  +-------------------+   inproc socket
- |             |              |   broker   |            | zmosq_server      |   [topic|payload]
- |             |              |            |            |                   | ==================>
- +-------------+              +------------+            +-------------------+
-                                                       
-                                                                           
-|              MQTT protocol                                                |  ZMTP protocol    |
-+---------------------------------------------------------------------------+-------------------+
+     +-------------+              +------------+             +-------------------+
+     |             |              |            |             |                   |
+     |             |    publish   |            |  subscribe  | Mosquitto client  |
+     | MQTT client | ===========> | Mosquitto  | <=========  +-------------------+   inproc socket
+     |             |              |   broker   |             | zmosq_server      |   [topic|payload]
+     |             |              |            |             |                   | ==================>
+     +-------------+              +------------+             +-------------------+
+                                                            
+                                                                                
+     |              MQTT protocol                                                 |  ZMTP protocol    |
+     +----------------------------------------------------------------------------+-------------------+
 
 ## How to build
 
