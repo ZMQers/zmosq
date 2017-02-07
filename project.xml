@@ -1,11 +1,13 @@
-<project 
+<project
     name = "zmosq" description = "ZeroMQ/Malamute/Mosquitto (MQQT) proxy"
     prefix = "zmsq"
     script = "zproject.gsl"
     email = "zeromq-dev@lists.zeromq.org"
     repository = "https://github.com/ZMQers/zmosq"
     url = "https://github.com/ZMQers/zmosq">
-    
+
+    <target name="travis" />
+
     <include filename = "license.xml" />
     <version major = "0" minor = "1" />
     <use project = "czmq" />
@@ -13,5 +15,5 @@
 
     <actor name = "zmosq_server">Zmosq actor</actor>
     <class name = "zmosq_client">Zmosq client</class>
-    
+
 </project>

@@ -1,0 +1,72 @@
+# Travis CI script
+# This is a skeleton created by zproject.
+# You can add hand-written code here.
+
+language: c
+
+cache: ccache
+
+os:
+- linux
+
+sudo: false
+
+services:
+- docker
+
+# Set CI_TIME=true to enable build-step profiling in Travis
+# Set CI_TRACE=true to enable shell script tracing in Travis
+# Set CI_CONFIG_QUIET=true to enable "configure --quiet" (only report stderr)
+env:
+  global:
+    - CI_TIME=false
+    - CI_TRACE=false
+    - CI_CONFIG_QUIET=true
+  matrix:
+    - BUILD_TYPE=default
+    - BUILD_TYPE=default-Werror
+    - BUILD_TYPE=cmake
+#   - BUILD_TYPE=android
+#   - BUILD_TYPE=check-py
+
+matrix:
+  include:
+  - env: BUILD_TYPE=valgrind
+    os: linux
+    dist: trusty
+    sudo: required
+    addons:
+      apt:
+        packages:
+        - valgrind
+
+addons:
+  sources:
+  - sourceline: 'deb http://download.opensuse.org/repositories/home:/zeromq:/git-draft/xUbuntu_12.04/ ./'
+    key_url: 'http://download.opensuse.org/repositories/home:/zeromq:/git-draft/xUbuntu_12.04/Release.key'
+  apt:
+    packages:
+    - asciidoc
+    - xmlto
+    - libzmq3-dev
+    - libczmq-dev
+    - mosquitto-dev
+
+before_install:
+- if [ $TRAVIS_OS_NAME == "osx" ] ; then brew update; brew install binutils valgrind ; fi
+
+# Hand off to generated script for each BUILD_TYPE
+script: ./ci_build.sh
+before_deploy: . ./ci_deploy.sh
+deploy:
+  provider: releases
+  api_key:
+    # To encrypt your access token run: `travis encrypt -r user/repo`
+    secure: <encrypted github access token>
+  file_glob: true
+  file: ${ZMOSQ_DEPLOYMENT}
+  skip_cleanup: true
+  on:
+    branch: master
+    tags: true
+    condition: $TRAVIS_OS_NAME =~ (linux) && $BUILD_TYPE =~ (default)

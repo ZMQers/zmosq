@@ -42,6 +42,7 @@ endif
 EXTRA_DIST += \
     LICENSE \
     README.md \
+    CONTRIBUTING.md \
     src/zmsq_classes.h
 
 include $(srcdir)/src/Makemodule.am
