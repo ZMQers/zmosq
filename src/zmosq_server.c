@@ -285,6 +285,41 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     zmosq_server_destroy (&self);
 }
 
+static void
+s_handle_mosquitto (bool verbose, int port)
+{
+    static int mosquitto_pid = -1;
+
+    if (mosquitto_pid > 0) {
+        // we're supposed to kill mosquitto instance
+        kill (mosquitto_pid, SIGKILL);
+        return;
+    }
+
+    int f = fork ();
+    if (f == 0) {
+        //child
+        char *cmdline = NULL;
+        if (verbose)
+            cmdline = zsys_sprintf ("mosquitto --verbose -p %d", port);
+        else
+            cmdline = zsys_sprintf ("mosquitto -p %d", port);
+
+        if (verbose)
+            zsys_debug ("running %s", cmdline);
+        int r = system (cmdline);
+        zstr_free (&cmdline);
+        assert (r >= 0);
+    }
+    else
+    if (f > 0)
+        mosquitto_pid = f;
+    else {
+        zsys_error ("Failed to fork mosquitto");
+        exit (EXIT_FAILURE);
+    }
+}
+
 //  --------------------------------------------------------------------------
 //  Self test of this actor.
 
@@ -294,10 +329,19 @@ zmosq_server_test (bool verbose)
     printf (" * zmosq_server: ");
     fflush (stdout);
 
+    srand (time (NULL));
+    int PORT = 1024 + (rand () % 4096);
+    char *PORTA = zsys_sprintf ("%d", PORT);
+
+    zsys_debug ("starting mosquitto");
+    s_handle_mosquitto (verbose, PORT);
+    zclock_sleep (3000);
+    zsys_debug ("started mosquitto");
+
     //  @selftest
     //  Simple create/destroy test
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
-    zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", "1883", "10", "127.0.0.1", NULL);
+    zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
     zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
@@ -311,7 +355,7 @@ zmosq_server_test (bool verbose)
     int r = mosquitto_connect_bind (
         client,
         "127.0.0.1",
-        1883,
+        PORT,
         10,
         "127.0.0.1");
     assert (r == MOSQ_ERR_SUCCESS);
@@ -330,7 +374,6 @@ zmosq_server_test (bool verbose)
         mosquitto_loop (client, 500, 1);
     }
 
-    zstr_sendx (zmosq_server, "START", NULL);
     // check at least 7 messages
     for (int i =0; i != 7; i++) {
         zmsg_t *msg = zmsg_recv (zmosq_server);
@@ -357,6 +400,8 @@ zmosq_server_test (bool verbose)
     }
     zactor_destroy (&zmosq_server);
     //  @end
+    zstr_free (&PORTA);
+    s_handle_mosquitto (verbose, PORT);
 
     printf ("OK\n");
 }
