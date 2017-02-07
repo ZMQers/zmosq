@@ -337,13 +337,14 @@ zmosq_server_test (bool verbose)
     int PORT = 1024 + (rand () % 4096);
     char *PORTA = zsys_sprintf ("%d", PORT);
 
-    zsys_debug ("starting mosquitto");
     s_handle_mosquitto (verbose, PORT);
     zclock_sleep (3000);
-    zsys_debug ("started mosquitto");
 
     //  @selftest
     //  Simple create/destroy test
+
+    //int PORT = 1833;
+    //char *PORTA = "1833";
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
     zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
     zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);
