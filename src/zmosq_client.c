@@ -134,7 +134,7 @@ zmosq_client_mqtt_connect (zmosq_client_t *self, const char *host, int port, int
     assert (self);
     assert (host);
     assert (bind_address);
-    zstr_sendx (self->zmosq_server, "MOSQUITTO-CONNECT", host, port, keepalive, bind_address, NULL);
+    zstr_sendx (self->zmosq_server, "CONNECT", host, port, keepalive, bind_address, NULL);
     // host
     zstr_free (&self->mqtt_host);
     self->mqtt_host = strdup (host);
@@ -203,7 +203,7 @@ zmosq_client_subscribe (zmosq_client_t *self, const char *topic)
     assert (self);
     assert (topic);
     zlistx_add_end (self->topics, (void *) topic);
-    zstr_sendx (self->zmosq_server, "MOSQUITTO-SUBSCRIBE", topic, NULL);
+    zstr_sendx (self->zmosq_server, "SUBSCRIBE", topic, NULL);
 }
 
 

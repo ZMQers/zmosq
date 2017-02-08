@@ -34,11 +34,11 @@ extern "C" {
 //
 //  Connect to mosquitto broker
 //
-//      zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "host", "port", "keepalive", "bind_address", NULL);
+//      zstr_sendx (zmosq_server, "CONNECT", "host", "port", "keepalive", "bind_address", NULL);
 //
 //  Subscribe on MQQT topic (can be repeated, or more topics can be specified here)
 //
-//      zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "topic", NULL);
+//      zstr_sendx (zmosq_server, "SUBSCRIBE", "topic", NULL);
 //
 //  Start zmosq_server actor - all broker related commands must be called before!
 //
@@ -48,6 +48,13 @@ extern "C" {
 //
 //      zstr_sendx (zmosq_server, "STOP", NULL);
 //
+//  MQQT messages are published on actor's pipe. They can be received as
+//  [topic|payload]
+//
+//      zmsg_t *msg = zmsg_recv (zmosq_server);
+//
+//  MQQT messages can be upblished as
+//      zsock_bsend (zmosq_server, "s11sp", "PUBLISH", qos, retain, "topic", "payload"); 
 //
 //  This is the zmosq_server constructor as a zactor_fn;
 ZMSQ_EXPORT void

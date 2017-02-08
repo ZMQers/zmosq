@@ -181,7 +181,7 @@ zmosq_server_recv_api (zmosq_server_t *self)
     if (streq (command, "VERBOSE"))
         self->verbose = true;
     else
-    if (streq (command, "MOSQUITTO-CONNECT")) {
+    if (streq (command, "CONNECT")) {
         self->host = zmsg_popstr (request);
         assert (self->host);
 
@@ -200,7 +200,7 @@ zmosq_server_recv_api (zmosq_server_t *self)
             self->bind_address = strdup (self->host);
     }
     else
-    if (streq (command, "MOSQUITTO-SUBSCRIBE")) {
+    if (streq (command, "SUBSCRIBE")) {
         char *topic = zmsg_popstr (request);
         while (topic) {
             zlist_append (self->topics, topic);
@@ -346,8 +346,8 @@ zmosq_server_test (bool verbose)
     //int PORT = 1833;
     //char *PORTA = "1833";
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
-    zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
-    zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);
+    zstr_sendx (zmosq_server, "CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
+    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST", "TEST2", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
     mosquitto_t *client = mosquitto_new (
