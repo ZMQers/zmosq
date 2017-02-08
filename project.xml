@@ -11,7 +11,7 @@
     <include filename = "license.xml" />
     <version major = "0" minor = "1" />
     <use project = "czmq" />
-    <use project = "mosquitto" test="mosquitto_lib_cleanup"/>
+    <use project = "mosquitto" test="mosquitto_lib_cleanup" debian_name="libmosquitto-dev" />
 
     <actor name = "zmosq_server">Zmosq actor</actor>
     <class name = "zmosq_client">Zmosq client</class>

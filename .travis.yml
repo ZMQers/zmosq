@@ -50,7 +50,7 @@ addons:
     - xmlto
     - libzmq3-dev
     - libczmq-dev
-    - mosquitto-dev
+    - libmosquitto-dev
 
 before_install:
 - if [ $TRAVIS_OS_NAME == "osx" ] ; then brew update; brew install binutils valgrind ; fi
