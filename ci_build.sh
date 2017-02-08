@@ -236,7 +236,7 @@ if [ "$BUILD_TYPE" == "default" ] || [ "$BUILD_TYPE" == "default-Werror" ] || [ 
     fi
 
     # Start of recipe for dependency: mosquitto
-    if ! (command -v dpkg-query >/dev/null 2>&1 && dpkg-query --list mosquitto-dev >/dev/null 2>&1) || \
+    if ! (command -v dpkg-query >/dev/null 2>&1 && dpkg-query --list libmosquitto-dev >/dev/null 2>&1) || \
            (command -v brew >/dev/null 2>&1 && brew ls --versions mosquitto >/dev/null 2>&1) \
     ; then
         echo ""

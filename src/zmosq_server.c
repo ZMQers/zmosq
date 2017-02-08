@@ -12,8 +12,13 @@
 
 /*
 @header
-    zmosq_server - Zmosq actor
+    zmosq_server - Zmosq actor forwarding MQTT messages to zeromq
 @discuss
+zmosq connects to remote Mosquito server, subscribes for topics and make them
+available as zeromq messages on the inproc pipe. It spawns and stops mosquitto
+client thread and provides standard interface on how to read data from MQTT.
+
+Each zeromq message has two frames [MQTT topic|MQTT payload]
 @end
 */
 
@@ -36,7 +41,6 @@ struct _zmosq_server_t {
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
-    //  TODO: Declare properties
 };
 
 
@@ -333,13 +337,14 @@ zmosq_server_test (bool verbose)
     int PORT = 1024 + (rand () % 4096);
     char *PORTA = zsys_sprintf ("%d", PORT);
 
-    zsys_debug ("starting mosquitto");
     s_handle_mosquitto (verbose, PORT);
     zclock_sleep (3000);
-    zsys_debug ("started mosquitto");
 
     //  @selftest
     //  Simple create/destroy test
+
+    //int PORT = 1833;
+    //char *PORTA = "1833";
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
     zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
     zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);

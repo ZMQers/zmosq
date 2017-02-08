@@ -40,14 +40,6 @@ extern "C" {
 //
 //      zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "topic", NULL);
 //
-//  Connect to malamute broker
-//
-//      zstr_sendx (zmosq_server, "MLM-CONNECT", "endpoint", NULL);
-//
-//  Publish on stream
-//
-//      zstr_sendx (zmosq_server, "MLM-STREAM", "stream", NULL);
-//
 //  Start zmosq_server actor - all broker related commands must be called before!
 //
 //      zstr_sendx (zmosq_server, "START", NULL);
