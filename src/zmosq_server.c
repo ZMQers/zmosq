@@ -181,7 +181,7 @@ zmosq_server_recv_api (zmosq_server_t *self)
     if (streq (command, "VERBOSE"))
         self->verbose = true;
     else
-    if (streq (command, "MOSQUITTO-CONNECT")) {
+    if (streq (command, "CONNECT")) {
         self->host = zmsg_popstr (request);
         assert (self->host);
 
@@ -200,12 +200,42 @@ zmosq_server_recv_api (zmosq_server_t *self)
             self->bind_address = strdup (self->host);
     }
     else
-    if (streq (command, "MOSQUITTO-SUBSCRIBE")) {
+    if (streq (command, "SUBSCRIBE")) {
         char *topic = zmsg_popstr (request);
         while (topic) {
             zlist_append (self->topics, topic);
             zstr_free (&topic);
         }
+    }
+    else
+    if (streq (command, "PUBLISH")) {
+        char *topic = zmsg_popstr (request);
+        char *qosa = zmsg_popstr (request);
+        char *retaina = zmsg_popstr (request);
+        zframe_t *payload = zmsg_pop (request);
+
+        int qos = 0;
+        switch (qosa [0]) {
+            case '1' : qos = 1; break;
+            case '2' : qos = 2; break;
+        }
+        zstr_free (&qosa);
+
+        bool retain = streq (retaina, "true");
+        zstr_free (&retaina);
+
+        int r = mosquitto_publish (
+            self->mosq,
+            NULL,
+            topic,
+            zframe_size (payload),
+            zframe_data (payload),
+            qos,
+            retain);
+        if (r != MOSQ_ERR_SUCCESS)
+            zsys_warning ("Message on topic %s not published: %s", topic, mosquitto_strerror (r));
+        zframe_destroy (&payload);
+        zstr_free (&topic);
     }
     else
     if (streq (command, "$TERM")) {
@@ -311,6 +341,14 @@ s_handle_mosquitto (bool verbose, int port)
 
         if (verbose)
             zsys_debug ("running %s", cmdline);
+
+        // upstream mosquitto installs binary to /usr/sbin, which is not in the PATH for most of users
+        // so add /usr/sbin/ there
+        const char* PATH = getenv ("PATH");
+        char* NPATH = zsys_sprintf ("/usr/sbin:%s", PATH);
+        setenv ("PATH", NPATH, 1);
+        zstr_free (&NPATH);
+
         int r = system (cmdline);
         zstr_free (&cmdline);
         assert (r >= 0);
@@ -333,12 +371,14 @@ zmosq_server_test (bool verbose)
     printf (" * zmosq_server: ");
     fflush (stdout);
 
+    int PORT = 0;
+    char *PORTA = NULL;
     srand (time (NULL));
-    int PORT = 1024 + (rand () % 4096);
-    char *PORTA = zsys_sprintf ("%d", PORT);
+    PORT = 1024 + (rand () % 4096);
+    PORTA = zsys_sprintf ("%d", PORT);
 
     s_handle_mosquitto (verbose, PORT);
-    zclock_sleep (3000);
+    zclock_sleep (3000);    // helps broker to initialize
 
     //  @selftest
     //  Simple create/destroy test
@@ -346,37 +386,17 @@ zmosq_server_test (bool verbose)
     //int PORT = 1833;
     //char *PORTA = "1833";
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
-    zstr_sendx (zmosq_server, "MOSQUITTO-CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
-    zstr_sendx (zmosq_server, "MOSQUITTO-SUBSCRIBE", "TEST", "TEST2", NULL);
+    zstr_sendx (zmosq_server, "CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
+    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST", "TEST2", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
-    mosquitto_t *client = mosquitto_new (
-        "zmosq_server_test_client",
-        false,
-        NULL
-        );
-    assert (client);
-
-    int r = mosquitto_connect_bind (
-        client,
-        "127.0.0.1",
-        PORT,
-        10,
-        "127.0.0.1");
-    assert (r == MOSQ_ERR_SUCCESS);
+    zactor_t *zmosq_pub = zactor_new (zmosq_server_actor, NULL);
+    zstr_sendx (zmosq_pub, "CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
+    zstr_sendx (zmosq_pub, "START", NULL);
+    zclock_sleep (3000); // helps actor to estabilish connection to broker
 
     for (int i =0; i != 20; i++) {
-        mosquitto_loop (client, 500, 1);
-        r = mosquitto_publish (
-            client,
-            NULL,
-            "TOPIC",
-            6,
-            "HELLO\0",
-            0,
-            false);
-        assert (r == MOSQ_ERR_SUCCESS);
-        mosquitto_loop (client, 500, 1);
+        zstr_sendx (zmosq_pub, "PUBLISH", "TOPIC", "0", "false", "HELLO, FRAME", NULL);
     }
 
     // check at least 7 messages
@@ -386,14 +406,11 @@ zmosq_server_test (bool verbose)
         topic = zmsg_popstr (msg);
         body = zmsg_popstr (msg);
         assert (streq (topic, "TOPIC"));
-        assert (streq (body, "HELLO"));
+        assert (streq (body, "HELLO, FRAME"));
         zstr_free (&topic);
         zstr_free (&body);
         zmsg_destroy (&msg);
     }
-
-    mosquitto_disconnect (client);
-    mosquitto_destroy (client);
 
     zpoller_t *poller = zpoller_new (zmosq_server, NULL);
     while (true) {
@@ -404,6 +421,7 @@ zmosq_server_test (bool verbose)
         zmsg_destroy (&msg);
     }
     zpoller_destroy (&poller);
+    zactor_destroy (&zmosq_pub);
     zactor_destroy (&zmosq_server);
     //  @end
     zstr_free (&PORTA);
