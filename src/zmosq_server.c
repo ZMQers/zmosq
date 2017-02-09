@@ -443,7 +443,7 @@ zmosq_server_test (bool verbose)
     zactor_destroy (&zmosq_server);
     //  @end
     zstr_free (&PORTA);
-    zclock_sleep (10000);
+    zclock_sleep (1000);
     s_handle_mosquitto (verbose, PORT);
 
     printf ("OK\n");
