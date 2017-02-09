@@ -341,6 +341,14 @@ s_handle_mosquitto (bool verbose, int port)
 
         if (verbose)
             zsys_debug ("running %s", cmdline);
+
+        // upstream mosquitto installs binary to /usr/sbin, which is not in the PATH for most of users
+        // so add /usr/sbin/ there
+        const char* PATH = getenv ("PATH");
+        char* NPATH = zsys_sprintf ("/usr/sbin:%s", PATH);
+        setenv ("PATH", NPATH, 1);
+        zstr_free (&NPATH);
+
         int r = system (cmdline);
         zstr_free (&cmdline);
         assert (r >= 0);
