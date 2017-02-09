@@ -48,12 +48,12 @@ extern "C" {
 //
 //      zstr_sendx (zmosq_server, "STOP", NULL);
 //
-//  MQQT messages are published on actor's pipe. They can be received as
+//  MQQT messages can be read from actor itself
 //  [topic|payload]
 //
 //      zmsg_t *msg = zmsg_recv (zmosq_server);
 //
-//  MQQT messages can be upblished as
+//  MQQT messages can be published as
 //  [topic|qos (0-2)|retain (false|true)|payload]
 //
 //      zstr_sendx (zmosq_pub, "PUBLISH", "TOPIC", "0", "false", "HELLO, FRAME", NULL);
