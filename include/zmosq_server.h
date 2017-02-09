@@ -54,7 +54,9 @@ extern "C" {
 //      zmsg_t *msg = zmsg_recv (zmosq_server);
 //
 //  MQQT messages can be upblished as
-//      zsock_bsend (zmosq_server, "s11sp", "PUBLISH", qos, retain, "topic", "payload"); 
+//  [topic|qos (0-2)|retain (false|true)|payload]
+//
+//      zstr_sendx (zmosq_pub, "PUBLISH", "TOPIC", "0", "false", "HELLO, FRAME", NULL);
 //
 //  This is the zmosq_server constructor as a zactor_fn;
 ZMSQ_EXPORT void
