@@ -326,7 +326,10 @@ s_handle_mosquitto (bool verbose, int port)
 
     if (mosquitto_pid > 0) {
         // we're supposed to kill mosquitto instance
-        kill (mosquitto_pid, SIGKILL);
+        zsys_info ("Killing mosquitto pid = '%d'", mosquitto_pid);
+        int rv = kill (mosquitto_pid, SIGKILL);
+        if (rv != 0) 
+            zsys_error ("executing kill (pid = '%d', SIGKILL) failed.", mosquitto_pid);
         return;
     }
 
@@ -354,8 +357,10 @@ s_handle_mosquitto (bool verbose, int port)
         assert (r >= 0);
     }
     else
-    if (f > 0)
+    if (f > 0) {
+        zsys_info ("Forked mosquitto pid === '%d'", f);
         mosquitto_pid = f;
+    }
     else {
         zsys_error ("Failed to fork mosquitto");
         exit (EXIT_FAILURE);
@@ -425,6 +430,7 @@ zmosq_server_test (bool verbose)
     zactor_destroy (&zmosq_server);
     //  @end
     zstr_free (&PORTA);
+    zclock_sleep (1000);
     s_handle_mosquitto (verbose, PORT);
 
     printf ("OK\n");
