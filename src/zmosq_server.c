@@ -340,6 +340,8 @@ s_handle_mosquitto (bool verbose, int port)
         assert (frv == temp_str);
         assert (atoi (temp_str) != 0);
 
+        if (verbose)
+            zsys_debug ("Stopping mosquitto broker.");
         int rv = kill (atoi (temp_str), SIGKILL);
         if (rv != 0) 
             zsys_error ("executing kill (pid = '%d', SIGKILL) failed.", atoi (temp_str));
@@ -349,15 +351,12 @@ s_handle_mosquitto (bool verbose, int port)
 
     int f = fork ();
     if (f == 0) {
-        //child
+        //  child
         char *cmdline = NULL;
         if (verbose)
             cmdline = zsys_sprintf ("mosquitto --verbose -p %d", port);
         else
             cmdline = zsys_sprintf ("mosquitto -p %d", port);
-
-        if (verbose)
-            zsys_debug ("running %s", cmdline);
 
         // upstream mosquitto installs binary to /usr/sbin, which is not in the PATH for most of users
         // so add /usr/sbin/ there
@@ -366,16 +365,19 @@ s_handle_mosquitto (bool verbose, int port)
         setenv ("PATH", NPATH, 1);
         zstr_free (&NPATH);
 
+        if (verbose)
+            zsys_debug ("Starting mosquitto broker: `%s`", cmdline);
         int r = system (cmdline);
         zstr_free (&cmdline);
         assert (r >= 0);
+
     }
     else
     if (f > 0) {
         child_pid = f;
     }
     else {
-        zsys_error ("Failed to fork mosquitto");
+        zsys_error ("Failed to fork mosquitto.");
         exit (EXIT_FAILURE);
     }
 }
@@ -386,7 +388,7 @@ s_handle_mosquitto (bool verbose, int port)
 void
 zmosq_server_test (bool verbose)
 {
-    printf (" * zmosq_server: ");
+    printf (" * zmosq_server:\n");
     fflush (stdout);
 
     int PORT = 0;
@@ -401,8 +403,6 @@ zmosq_server_test (bool verbose)
     //  @selftest
     //  Simple create/destroy test
 
-    //int PORT = 1833;
-    //char *PORTA = "1833";
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
     zstr_sendx (zmosq_server, "CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
     zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST", "TEST2", NULL);
@@ -443,7 +443,6 @@ zmosq_server_test (bool verbose)
     zactor_destroy (&zmosq_server);
     //  @end
     zstr_free (&PORTA);
-    zclock_sleep (1000);
     s_handle_mosquitto (verbose, PORT);
 
     printf ("OK\n");
