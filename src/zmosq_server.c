@@ -253,14 +253,13 @@ zmosq_server_recv_api (zmosq_server_t *self)
 
 static void
 s_connect (struct mosquitto *mosq, void *obj, int result) {
-
     assert (obj);
     zmosq_server_t *self = (zmosq_server_t*) obj;
 
     if (!result) {
         char *topic = (char*) zlist_first (self->topics);
         while (topic) {
-            int r = mosquitto_subscribe (mosq, NULL, "#", 0);
+            int r = mosquitto_subscribe (mosq, NULL, topic, 0);
             assert (r == MOSQ_ERR_SUCCESS);
             topic = (char*) zlist_next (self->topics);
         }
@@ -405,7 +404,9 @@ zmosq_server_test (bool verbose)
 
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
     zstr_sendx (zmosq_server, "CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
-    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST", "TEST2", NULL);
+    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST", NULL);
+    zstr_sendx (zmosq_server, "SUBSCRIBE", "TOPIC", NULL);
+    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST2", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
     zactor_t *zmosq_pub = zactor_new (zmosq_server_actor, NULL);
