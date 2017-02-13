@@ -475,7 +475,7 @@ zmosq_server_test (bool verbose)
     int i = 0;
 
     for (i = 0; i < 20; i++) {
-        zstr_sendx (zmosq_pub, "PUBLISH", "TOPIC", "0", "false", "HELLO, FRAME", NULL);
+        zstr_sendx (zmosq_pub, "PUBLISH", (i % 2 == 0) ? "TOPIC" : "TEST", "0", "false", "HELLO, FRAME", NULL);
     }
     zclock_sleep (500);
 
@@ -485,7 +485,10 @@ zmosq_server_test (bool verbose)
         char *topic, *body;
         topic = zmsg_popstr (msg);
         body = zmsg_popstr (msg);
-        assert (streq (topic, "TOPIC"));
+        if (i % 2 == 0)
+            assert (streq (topic, "TOPIC"));
+        else
+            assert (streq (topic, "TEST"));
         assert (streq (body, "HELLO, FRAME"));
         zstr_free (&topic);
         zstr_free (&body);
