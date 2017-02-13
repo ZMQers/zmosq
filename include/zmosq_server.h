@@ -38,7 +38,7 @@ extern "C" {
 //
 //  Subscribe on MQQT topic (can be repeated, or more topics can be specified here)
 //
-//      zstr_sendx (zmosq_server, "SUBSCRIBE", "topic", NULL);
+//      zstr_sendx (zmosq_server, "SUBSCRIBE", "<TOPIC_1>", ..., "<TOPIC_N>", NULL);
 //
 //  Start zmosq_server actor - all broker related commands must be called before!
 //

@@ -258,6 +258,7 @@ zmosq_server_recv_api (zmosq_server_t *self)
             if (!handle)
                 zlistx_add_end (self->topics, topic);
             zstr_free (&topic);
+            topic = zmsg_popstr (request);
         }
     }
     else
@@ -459,9 +460,7 @@ zmosq_server_test (bool verbose)
 
     zactor_t *zmosq_server = zactor_new (zmosq_server_actor, NULL);
     zstr_sendx (zmosq_server, "CONNECT", "127.0.0.1", PORTA, "10", "127.0.0.1", NULL);
-    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST", NULL);
-    zstr_sendx (zmosq_server, "SUBSCRIBE", "TOPIC", NULL);
-    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST2", NULL);
+    zstr_sendx (zmosq_server, "SUBSCRIBE", "TEST", "TEST2", "TOPIC", "SOME MORE", NULL);
     zstr_sendx (zmosq_server, "START", NULL);
 
     zactor_t *zmosq_pub = zactor_new (zmosq_server_actor, NULL);
