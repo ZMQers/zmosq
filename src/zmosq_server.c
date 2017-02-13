@@ -43,7 +43,7 @@ struct _zmosq_server_t {
     int port;                   //      port
     int keepalive;              //      keepalive in seconds
     char *bind_address;         //      hostname or ip of local network interface to bind to
-    zlist_t *topics;            //      MQQT topics to subscribe to
+    zlistx_t *topics;           //      MQQT topics to subscribe to
 };
 
 
@@ -114,12 +114,14 @@ zmosq_server_new (zsock_t *pipe, void *args)
         return NULL;
     }
 
-    self->topics = zlist_new ();
+    self->topics = zlistx_new ();
     if (!self->topics) {
         zmosq_server_destroy (&self);
         return NULL;
     }
-    zlist_autofree (self->topics);
+    zlistx_set_duplicator (self->topics, (czmq_duplicator *) strdup);
+    zlistx_set_destructor (self->topics, (czmq_destructor *) zstr_free);
+    zlistx_set_comparator (self->topics, (czmq_comparator *) strcmp);
 
     return self;
 }
@@ -145,7 +147,7 @@ zmosq_server_destroy (zmosq_server_t **self_p)
         }
         zstr_free (&self->host);
         zstr_free (&self->bind_address);
-        zlist_destroy (&self->topics);
+        zlistx_destroy (&self->topics);
         free (self);
         *self_p = NULL;
     }
@@ -252,7 +254,9 @@ zmosq_server_recv_api (zmosq_server_t *self)
     if (streq (command, "SUBSCRIBE")) {
         char *topic = zmsg_popstr (request);
         while (topic) {
-            zlist_append (self->topics, topic);
+            void *handle = zlistx_find (self->topics, (void *) topic);
+            if (!handle)
+                zlistx_add_end (self->topics, topic);
             zstr_free (&topic);
         }
     }
@@ -303,14 +307,14 @@ zmosq_server_recv_api (zmosq_server_t *self)
 static void
 s_connect (struct mosquitto *mosq, void *obj, int result) {
     assert (obj);
-    zmosq_server_t *self = (zmosq_server_t*) obj;
+    zmosq_server_t *self = (zmosq_server_t *) obj;
 
     if (!result) {
-        char *topic = (char*) zlist_first (self->topics);
+        char *topic = (char *) zlistx_first (self->topics);
         while (topic) {
             int r = mosquitto_subscribe (mosq, NULL, topic, 0);
             assert (r == MOSQ_ERR_SUCCESS);
-            topic = (char*) zlist_next (self->topics);
+            topic = (char *) zlistx_next (self->topics);
         }
     }
 }
