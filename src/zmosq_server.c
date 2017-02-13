@@ -367,8 +367,13 @@ zmosq_server_actor (zsock_t *pipe, void *args)
     zmosq_server_destroy (&self);
 }
 
+
+
+//  --------------------------------------------------------------------------
+//  Self test of this actor.
+
 static void
-s_handle_mosquitto (bool verbose, int port)
+s_test_handle_mosquitto (bool verbose, int port)
 {
     static int child_pid = -1;
 
@@ -430,9 +435,6 @@ s_handle_mosquitto (bool verbose, int port)
     }
 }
 
-//  --------------------------------------------------------------------------
-//  Self test of this actor.
-
 void
 zmosq_server_test (bool verbose)
 {
@@ -445,7 +447,7 @@ zmosq_server_test (bool verbose)
     PORT = 1024 + (rand () % 4096);
     PORTA = zsys_sprintf ("%d", PORT);
 
-    s_handle_mosquitto (verbose, PORT);
+    s_test_handle_mosquitto (verbose, PORT);
     zclock_sleep (3000);    // helps broker to initialize
 
     //  @selftest
@@ -493,7 +495,7 @@ zmosq_server_test (bool verbose)
     zactor_destroy (&zmosq_server);
     //  @end
     zstr_free (&PORTA);
-    s_handle_mosquitto (verbose, PORT);
+    s_test_handle_mosquitto (verbose, PORT);
 
     printf ("OK\n");
 }
