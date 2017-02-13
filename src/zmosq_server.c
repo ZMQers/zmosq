@@ -24,56 +24,101 @@ Each zeromq message has two frames [MQTT topic|MQTT payload]
 
 #include "zmsq_classes.h"
 
-//  Structure of our actor
 typedef struct mosquitto mosquitto_t;
 
+//  Structure of our actor
 struct _zmosq_server_t {
     zsock_t *pipe;              //  Actor command pipe
-    zsock_t *mqtt_reader;
-    zsock_t *mqtt_writer;
-    zuuid_t *uuid;
-    mosquitto_t *mosq;
-    char *host;                 // mosquitto_connect_bind_async
-    int port;                   //
-    int keepalive;              //
-    char *bind_address;         //
-    zlist_t *topics;            //  MQQT topics to subscribe to
-    zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
+
+    zuuid_t *uuid;              //  uuid, used for generating unique (inproc) endpoint
+    zsock_t *mqtt_reader;
+    zsock_t *mqtt_writter;
+    zpoller_t *poller;          //  Socket poller
+
+                                //  mosquitto:
+    mosquitto_t *mosq;          //      client structure 
+    char *host;                 //      hostname or ip of the broker to connect to
+    int port;                   //      port
+    int keepalive;              //      keepalive in seconds
+    char *bind_address;         //      hostname or ip of local network interface to bind to
+    zlist_t *topics;            //      MQQT topics to subscribe to
 };
 
 
 //  --------------------------------------------------------------------------
 //  Create a new zmosq_server instance
 
+static void zmosq_server_destroy (zmosq_server_t **self_p);
+
 static zmosq_server_t *
 zmosq_server_new (zsock_t *pipe, void *args)
 {
     zmosq_server_t *self = (zmosq_server_t *) zmalloc (sizeof (zmosq_server_t));
-    assert (self);
+    if (!self)
+        return NULL;
 
+    //  pipe, terminated, verbose
     self->pipe = pipe;
     self->terminated = false;
-    self->poller = zpoller_new (self->pipe, NULL);
+    self->verbose = false;
 
+    //  uuid
     self->uuid = zuuid_new ();
+    if (!self->uuid) {
+        zmosq_server_destroy (&self);
+        return NULL;
+    }
+
+    //  mqtt_reader, mqtt_writter
     char *endpoint = zsys_sprintf (" inproc://%s-mqtt", zuuid_str_canonical (self->uuid));
+    if (!endpoint) {
+        zmosq_server_destroy (&self);
+        return NULL;
+    }
 
     endpoint [0] = '@';
-    self->mqtt_writer = zsock_new_pair (endpoint);
+    self->mqtt_writter = zsock_new_pair (endpoint);
     endpoint [0] = '>';
     self->mqtt_reader  = zsock_new_pair (endpoint);
-    zpoller_add (self->poller, self->mqtt_reader);
-
     zstr_free (&endpoint);
+    if (!self->mqtt_writter || !self->mqtt_reader) {
+        zmosq_server_destroy (&self);
+        return NULL;
+    }
+    
+    //  poller
+    self->poller = zpoller_new (self->pipe, self->mqtt_reader, NULL);
+    if (!self->poller) {
+        zmosq_server_destroy (&self);
+        return NULL;
+    }
 
+    //  mosq + related
     self->mosq = mosquitto_new (
         zuuid_str_canonical (self->uuid),
         false,
         self);
+    if (!self->mosq) {
+        zmosq_server_destroy (&self);
+        return NULL;
+    }
+
+    self->host = strdup ("");
+    self->port = -1;
+    self->keepalive = -1;
+    self->bind_address = strdup ("");
+    if (!self->host || !self->bind_address) {
+        zmosq_server_destroy (&self);
+        return NULL;
+    }
 
     self->topics = zlist_new ();
+    if (!self->topics) {
+        zmosq_server_destroy (&self);
+        return NULL;
+    }
     zlist_autofree (self->topics);
 
     return self;
@@ -90,12 +135,14 @@ zmosq_server_destroy (zmosq_server_t **self_p)
     if (*self_p) {
         zmosq_server_t *self = *self_p;
 
-        zpoller_destroy (&self->poller);
         zuuid_destroy (&self->uuid);
-        zsock_destroy (&self->mqtt_writer);
+        zsock_destroy (&self->mqtt_writter);
         zsock_destroy (&self->mqtt_reader);
-        if (self->mosq)
+        zpoller_destroy (&self->poller);
+        if (self->mosq) {
             mosquitto_destroy (self->mosq);
+            self->mosq = NULL;
+        }
         zstr_free (&self->host);
         zstr_free (&self->bind_address);
         zlist_destroy (&self->topics);
@@ -182,6 +229,7 @@ zmosq_server_recv_api (zmosq_server_t *self)
         self->verbose = true;
     else
     if (streq (command, "CONNECT")) {
+        zstr_free (&self->host);
         self->host = zmsg_popstr (request);
         assert (self->host);
 
@@ -195,6 +243,7 @@ zmosq_server_recv_api (zmosq_server_t *self)
             self->keepalive = 3;
         zstr_free (&foo);
 
+        zstr_free (&self->bind_address);
         self->bind_address = zmsg_popstr (request);
         if (!self->bind_address)
             self->bind_address = strdup (self->host);
@@ -273,14 +322,14 @@ s_message (struct mosquitto *mosq, void *obj, const struct mosquitto_message *me
 
     zmosq_server_t *self = (zmosq_server_t*) obj;
     assert (self);
-    zsock_t *mqtt_writer = self->mqtt_writer;
-    assert (mqtt_writer);
+    zsock_t *mqtt_writter = self->mqtt_writter;
+    assert (mqtt_writter);
 
     zmsg_t *msg = zmsg_new ();
     zmsg_addstr (msg, message->topic);
     if (message->payload)
         zmsg_addmem (msg, message->payload, message->payloadlen);
-    zmsg_send (&msg, mqtt_writer);
+    zmsg_send (&msg, mqtt_writter);
 }
 
 //  --------------------------------------------------------------------------
