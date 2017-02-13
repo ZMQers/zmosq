@@ -377,7 +377,8 @@ zmosq_server_actor (zsock_t *pipe, void *args)
 //  --------------------------------------------------------------------------
 //  Self test of this actor.
 
-static void
+// exit on -1
+static int
 s_test_handle_mosquitto (bool verbose, int port)
 {
     static int child_pid = -1;
@@ -404,7 +405,7 @@ s_test_handle_mosquitto (bool verbose, int port)
         if (rv != 0) 
             zsys_error ("executing kill (pid = '%d', SIGKILL) failed.", atoi (temp_str));
 
-        return;
+        return 0;
     }
 
     int f = fork ();
@@ -428,6 +429,7 @@ s_test_handle_mosquitto (bool verbose, int port)
         int r = system (cmdline);
         zstr_free (&cmdline);
         assert (r >= 0);
+        return -1;
 
     }
     else
@@ -438,6 +440,7 @@ s_test_handle_mosquitto (bool verbose, int port)
         zsys_error ("Failed to fork mosquitto.");
         exit (EXIT_FAILURE);
     }
+    return 0;
 }
 
 void
@@ -450,9 +453,10 @@ zmosq_server_test (bool verbose)
     char *PORTA = NULL;
     srand (time (NULL));
     PORT = 1024 + (rand () % 4096);
-    PORTA = zsys_sprintf ("%d", PORT);
 
-    s_test_handle_mosquitto (verbose, PORT);
+    if (s_test_handle_mosquitto (verbose, PORT) == -1)
+        return;
+    PORTA = zsys_sprintf ("%d", PORT);
     zclock_sleep (3000);    // helps broker to initialize
 
     //  @selftest
@@ -468,13 +472,16 @@ zmosq_server_test (bool verbose)
     zstr_sendx (zmosq_pub, "START", NULL);
     zclock_sleep (3000); // helps actor to estabilish connection to broker
 
-    for (int i =0; i != 20; i++) {
+    int i = 0;
+
+    for (i = 0; i < 20; i++) {
         zstr_sendx (zmosq_pub, "PUBLISH", "TOPIC", "0", "false", "HELLO, FRAME", NULL);
     }
+    zclock_sleep (500);
 
-    // check at least 7 messages
-    for (int i =0; i != 7; i++) {
+    for (i = 0; i < 20; i++) {
         zmsg_t *msg = zmsg_recv (zmosq_server);
+        assert (msg);
         char *topic, *body;
         topic = zmsg_popstr (msg);
         body = zmsg_popstr (msg);
@@ -484,16 +491,7 @@ zmosq_server_test (bool verbose)
         zstr_free (&body);
         zmsg_destroy (&msg);
     }
-
-    zpoller_t *poller = zpoller_new (zmosq_server, NULL);
-    while (true) {
-        void *which = zpoller_wait (poller, 100);
-        if (!which)
-            break;
-        zmsg_t *msg = zmsg_recv (zmosq_server);
-        zmsg_destroy (&msg);
-    }
-    zpoller_destroy (&poller);
+    
     zactor_destroy (&zmosq_pub);
     zactor_destroy (&zmosq_server);
     //  @end
