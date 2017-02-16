@@ -292,6 +292,9 @@ if [ "$BUILD_TYPE" == "default" ] || [ "$BUILD_TYPE" == "default-Werror" ] || [ 
         ccache -s
     fi
 
+    killall -9 zmsq_selftest ||:
+    killall -9 mosquitto ||:
+
 elif [ "$BUILD_TYPE" == "bindings" ]; then
     pushd "./bindings/${BINDING}" && ./ci_build.sh
 else
