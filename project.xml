@@ -6,7 +6,9 @@
     repository = "https://github.com/ZMQers/zmosq"
     url = "https://github.com/ZMQers/zmosq">
 
-    <target name="travis" />
+    <target name="travis">
+        <option name="distcheck" value="0" />
+    </target>
 
     <include filename = "license.xml" />
     <version major = "0" minor = "1" />
