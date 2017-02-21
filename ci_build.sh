@@ -267,6 +267,9 @@ if [ "$BUILD_TYPE" == "default" ] || [ "$BUILD_TYPE" == "default-Werror" ] || [ 
     echo "==="
 
     make check
+    #MVY: manually added
+    killall -9 zmsq_selftest ||:
+    killall -9 mosquitto ||:
 
     # Build and check this project without DRAFT APIs
     echo ""
@@ -280,6 +283,10 @@ if [ "$BUILD_TYPE" == "default" ] || [ "$BUILD_TYPE" == "default-Werror" ] || [ 
         $CI_TIME ./configure --enable-drafts=no "${CONFIG_OPTS[@]}" --with-docs=yes
         $CI_TIME make VERBOSE=1 all || exit $?
         make check
+        #MVY: manually added
+        killall -9 zmsq_selftest ||:
+        killall -9 mosquitto ||:
+
     ) || exit 1
     [ -z "$CI_TIME" ] || echo "`date`: Builds completed without fatal errors!"
 
@@ -291,9 +298,6 @@ if [ "$BUILD_TYPE" == "default" ] || [ "$BUILD_TYPE" == "default-Werror" ] || [ 
         echo "CCache stats after build:"
         ccache -s
     fi
-
-    killall -9 zmsq_selftest ||:
-    killall -9 mosquitto ||:
 
 elif [ "$BUILD_TYPE" == "bindings" ]; then
     pushd "./bindings/${BINDING}" && ./ci_build.sh
